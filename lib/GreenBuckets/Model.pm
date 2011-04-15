@@ -7,6 +7,7 @@ use Scope::Container;
 use Scope::Container::DBI;
 use GreenBucktes::Util qw/filename_id internal_path/;
 use GreenBucktes::Schema;
+use GreenBucktes::Dispatcher::Response;
 use List::Util qw/shuffle/;
 use HTTP::Exception;
 use Log::Minimal;
@@ -40,9 +41,10 @@ sub get_object {
         HTTP::Exception->throw(500);
     }
 
-    ... #retrieve from storage
-
-    return ...;
+    # XXX res
+    my $res = GreenBucktes::Dispatcher::Response->new(200);
+    $res->body(Dumper(@r_uri));
+    $res;
 }
 
 sub put_object {
@@ -50,7 +52,8 @@ sub put_object {
     my ($bucket_name, $filename, $fh) = @_;
 
     my $sc = start_scope_container();
-    if ( $self->check_for_put($bucket, $filename) ) {
+
+    if ( $self->retrieve_object($bucket, $filename) ) {
         warnf "duplicated upload %s/%s", $bucket, $filename;
         HTTP::Exception->throw(409);
     }
@@ -61,17 +64,19 @@ sub put_object {
     my $try=3;
     my $gid;
     for my $f_node ( @f_node ) {
+
         my $f_gid = $f_node->{gid};
-        
-        # upload ...
+        my $f_uri = $f_node->{uri}->[0];
+
+        # upload first node
 
         if ( success ) {
-            infof "%s/%s was uploaded to group_id:%s", $bucket, $filename, $f_gid;
+            infof "%s/%s was uploaded to group_id:%s %s", $bucket, $filename, $f_gid, $f_uri;
             $gid = $f_gid;
             last;
         }
 
-        infof "Failed upload to group_id:%s", $f_gid;
+        infof "Failed upload to group_id:%s %s", $f_gid, $f_uri;
         --$try;
         if ( $try == 0 ) {
             warnf "try time exceed for upload %s/%s", $bucket, $filename;
@@ -84,9 +89,43 @@ sub put_object {
         return HTTP::Exception->throw(500);
     }
 
-    $self->create_object( $gid, $bucket, $filename );
-    return 1;
+    my $sc2 = start_scope_container();
+    $self->insert_object( $gid, $bucket, $filename );
+
+    return GreenBucktes::Dispatcher::Response->new(206);
 }
+
+sub delete_object {
+    my $self = shift;
+    my ($bucket_name, $filename) = @_;
+
+    my $sc = start_scope_container();
+
+    my $object = $self->retrieve_object($bucket, $filename);
+    if ( !$object ) {
+        HTTP::Exception->throw(404);
+    }
+
+    my @nodes = $self->master->retrieve_object_nodes(
+        bucket_id => $bucket->{id},
+        fid => $fid
+    );
+    @nodes = map {
+        my $node = $_->{node};
+        $node =~ s!/$!!;
+        { uri => $node . '/' . $internal_path, %{$_} }
+    } @nodes;
+
+    # remove file
+
+    $self->master->delete_object(
+        bucket_id => $object->{bucket_id}, 
+        fid => $object->{fid}
+    );
+
+    return GreenBucktes::Dispatcher::Response->new(200);
+}
+
 
 sub retrieve_internal_uris {
     my $self = shift;
@@ -95,18 +134,17 @@ sub retrieve_internal_uris {
     my $bucket = $self->slave->retrieve_bucket(
         name => $bucket_name
     );
-    return HTTP::Exception->throw(404) unless $bucket; # 404
-
-    return HTTP::Exception->throw(403) if ! $bucket->{enabled}; # 403
-    return HTTP::Exception->throw(404) if $bucket->{deleted}; # 404;
+    HTTP::Exception->throw(404) unless $bucket; # 404
+    HTTP::Exception->throw(403) if ! $bucket->{enabled}; # 403
+    HTTP::Exception->throw(404) if $bucket->{deleted}; # 404;
 
     my $fid = filename_id($filename);
-    my @nodes = $self->slave->retrieve_nodes(
+    my @nodes = $self->slave->retrieve_object_nodes(
         bucket_id => $bucket->{id},
         fid => $fid
     );
 
-    return HTTP::Exception->throw(404) $bucket unless @nodes; # 404
+    HTTP::Exception->throw(404) $bucket unless @nodes; # 404
 
     my $internal_path = internal_path($bucket_name, $filename);
     my @uris =  sort {
@@ -119,22 +157,21 @@ sub retrieve_internal_uris {
     @uri;
 }
 
-sub check_for_put {
+sub retrieve_object {
     my $self = shift;
     my ($bucket_name, $filename) = @_;
 
     my $bucket = $self->master->retrieve_bucket(
         name => $bucket_name
     );
-    return 1 unless $bucket; # no bucket
+    return unless $bucket; # no bucket
     
     my $fid = filename_id($filename);
-    my @nodes = $self->master->retrieve_nodes(
+    my $object = $self->master->retrieve_object(
         bucket_id => $bucket->{id},
         fid => $fid
     );
-    return if @nodes; #exists
-    1;
+    return $object;
 }
 
 sub retrieve_fresh_nodes {
@@ -143,18 +180,25 @@ sub retrieve_fresh_nodes {
 
     my @nodes = $self->master->retrieve_fresh_nodes();
 
-    my %nodes;
+    my %group;
     my $internal_path = internal_path($bucket_name, $filename);
     for my $node ( @nodes ) {
-        $nodes{$_->{gid}} ||= [];
-        my $node_name = $_->{node};
+        $group{$node->{gid}} ||= [];
+        my $node_name = $node->{node};
         $node_name =~ s!/$!!;
-        push @{$nodes{$_->{gid}}}, $node_name . '/' . $internal_path;
+        push @{$group{$node->{gid}}}, $node_name . '/' . $internal_path;
     }
+    for my $gid ( keys %group ) {
+        my @sort = sort {
+            filename_id($a) <=> filename_id($b)
+        } @{$group{$gid}};
+        $group{$gid} = \@sort;
+    }
+
     map { { gid => $_, uri => $nodes{$_} } } shuffle keys %nodes;
 }
 
-sub create_object {
+sub insert_object {
     my $self = shift;
     my ($gid, $bucket_name, $filename) = @_;
 
@@ -169,7 +213,7 @@ sub create_object {
         die "bucket:$bucket_name is deleted" if $bucket->{deleted};
         my $bucket_id;
         if (!$bucket) {
-            $master->create_bucket(
+            $master->insert_bucket(
                 name => $bucket_name
             );
             $bucket_id = $master->last_insert_id('bucket'); #XXX
@@ -178,7 +222,7 @@ sub create_object {
             $bucket_id = $bucket->{id};
         }
         
-        $master->create_object(
+        $master->insert_object(
             bucket_id => $bucket_id,
             fid => filename_id($filename),
             gid => $gid
