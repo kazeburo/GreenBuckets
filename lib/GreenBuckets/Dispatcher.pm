@@ -22,16 +22,21 @@ sub get_object {
 
 sub put_object {
     my ($sef, $c) = @_;
-    my $bucket = $c->args->{bucket};
+    my $bucket_name = $c->args->{bucket};
     my ($filename) = @{$c->args->{splat}};
 
     $self->model->put_object($bucket_name, $filename, $fh);
 }
 
+sub get_bucket {
+    my ($sef, $c) = @_;
+    my $bucket_name = $c->args->{bucket};
+    $self->get_bucket($bucket_name);
+}
 
 sub delete_object {
     my ($sef, $c) = @_;
-    my $bucket = $c->args->{bucket};
+    my $bucket_name = $c->args->{bucket};
     my ($filename) = @{$c->args->{splat}};
 
     $self->model->put_object($bucket_name, $filename);
@@ -39,7 +44,7 @@ sub delete_object {
 
 sub manip_bucket {
     my ($sef, $c) = @_;
-    my $bucket = $c->args->{bucket};
+    my $bucket_name = $c->args->{bucket};
 }
 
 sub build_app {
@@ -52,6 +57,13 @@ sub build_app {
     $router->connect(
         '/:bucket/*',
         { action => 'get_object' },
+        { method => ['GET','HEAD'] }
+    );
+
+    # get dir
+    $router->connect(
+        '/:bucket/',
+        { action => 'get_bucket' },
         { method => ['GET','HEAD'] }
     );
 
