@@ -13,18 +13,36 @@ use HTTP::Exception;
 use Log::Minimal;
 use Class::Accessor::Lite (
     new => 1,
+    ro => [qw/config/],
 );
 
 sub slave {
     my $self = shift;
-    my $dbh = Scope::Container::DBI->new(...);
+    local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
+    my $dbh = Scope::Container::DBI->new($self->config->{slave});
     GreenBucktes::Schema->new(dbh=>$dbh, readonly=1);
 }
 
 sub master {
     my $self = shift;
-    my $dbh = Scope::Container::DBI->new(...);
+    local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
+    my $dbh = Scope::Container::DBI->new($self->config->{master});
     GreenBucktes::Schema->new(dbh=>$dbh);
+}
+
+sub agent {
+    my $self - shift;
+    $self->{_agent} ||= GreenBucktes::Agent->new(
+        user => ...,
+        passwd => ...
+    );
+    $self->{_agent};
+}
+
+sub res_ok {
+    my $self = shift;
+    my $res = GreenBucktes::Dispatcher::Response->new(200);
+    $res->body("OK");
 }
 
 sub get_object {
@@ -54,32 +72,40 @@ sub get_object {
         HTTP::Exception->throw(500);
     }
 
-    # XXX res
-    my $res = GreenBucktes::Dispatcher::Response->new(200);
-    $res->body(Dumper(@r_uri));
-    $res;
+    my $res = $self->agent->get(\@r_uri);
+    if ( !$res->is_success ) {
+        warnf "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line;
+        HTTP::Exception->throw(500);
+    }
+
+    my $r_res = GreenBucktes::Dispatcher::Response->new(200);
+    for my $header ( qw/server content_type last_modified/ ) {
+        $r_res->header($header) = $res->header($header);
+    }
+    $r_res->body($res->body);
+    $r_es;
 }
 
 sub get_bucket {
     my $self = shift;
     my ($bucket_name) = @_;
 
-   my $sc = start_scope_container();
+    my $sc = start_scope_container();
 
-   my $slave = $self->slave;
-   my $bucket = $slave->select_bucket(
-       name => $bucket_name
-   );
-   HTTP::Exception->throw(404) unless $bucket; # 404
-   HTTP::Exception->throw(403) if ! $bucket->{enabled}; # 403
-   HTTP::Exception->throw(503) if $bucket->{deleted}; # 404;
+    my $slave = $self->slave;
+    my $bucket = $slave->select_bucket(
+        name => $bucket_name
+    );
+    HTTP::Exception->throw(404) unless $bucket; # 404
+    HTTP::Exception->throw(403) if ! $bucket->{enabled}; # 403
+    HTTP::Exception->throw(503) if $bucket->{deleted}; # 404;
 
-   return 1;
+    return $self->res_ok;
 }
 
 sub put_object {
     my $self = shift;
-    my ($bucket_name, $filename, $fh) = @_;
+    my ($bucket_name, $filename, $content_ref) = @_;
 
     my $sc = start_scope_container();
     my $master = $self->master;
@@ -96,7 +122,8 @@ sub put_object {
 
     my @f_nodes = $master->retrieve_fresh_nodes(
         bucket_name => $bucket_name, 
-        filename => $filename
+        filename => $filename,
+        having => $self->config->{replica}
     );
     undef $sc;
 
@@ -105,17 +132,19 @@ sub put_object {
     for my $f_node ( @f_node ) {
 
         my $f_gid = $f_node->{gid};
-        my $f_uri = $f_node->{uri}->[0];
+        my $f_uri = $f_node->{uri};
+        
+        my $result = $self->agent->put($f_uri, $content_ref);
 
-        # upload first node
-
-        if ( success ) {
-            infof "%s/%s was uploaded to group_id:%s %s", $bucket, $filename, $f_gid, $f_uri;
+        if ( $result ) {
+            infof "%s/%s was uploaded to group_id:%s", $bucket, $filename, $f_gid, $f_uri;
             $gid = $f_gid;
             last;
         }
 
         infof "Failed upload to group_id:%s %s", $f_gid, $f_uri;
+        $self->agent->put($f_uri);
+
         --$try;
         if ( $try == 0 ) {
             warnf "try time exceed for upload %s/%s", $bucket, $filename;
@@ -135,7 +164,7 @@ sub put_object {
         filename => $filename
     );
 
-    return GreenBucktes::Dispatcher::Response->new(206);
+    return $self->res_ok;
 }
 
 sub delete_object {
@@ -156,14 +185,19 @@ sub delete_object {
         filename => $filename,
     );
 
-    # remove file
-
     $master->delete_object(
         bucket_id => $bucket_id->{id}, 
         filename => $filename
     );
 
-    return GreenBucktes::Dispatcher::Response->new(200);
+    undef $sc;
+
+    # remove file
+    my @r_uri = map { $_->{uri} }
+        grep { $_->{can_read} && $_->{is_fresh} } @uri;
+    $self->agent->delete(\@r_uri);
+
+    return $self->res_ok;
 }
 
 1;

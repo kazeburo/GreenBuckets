@@ -4,7 +4,6 @@ use strict;
 use warnings;
 use utf8;
 use Plack::Builder;
-use Scope::Container;
 use GreenBucktes::Dispatcher::Request;
 use GreenBucktes::Dispatcher::Response;
 use GreenBucktes::Dispatcher::Connection;
@@ -13,38 +12,46 @@ use Class::Accessor::Lite (
     new => 1,
 );
 
+sub model {
+    my $self = shift;
+    $self->{_model} ||= GreenBucktes::Model->new(
+        config => ... 
+    );
+    $self->{_model};
+}
+
 sub get_object {
-    my ($sef, $c) = @_;
-    my $bucket_name = $c->args->{bucket};
-    my ($filename) = @{$c->args->{splat}};
+    my ($self, $c) = @_;
+    my ($bucket_name,$filename) = @{$c->args->{splat}};
     $self->model->get_object($bucket_name, $filename);
 }
 
 sub put_object {
     my ($sef, $c) = @_;
-    my $bucket_name = $c->args->{bucket};
-    my ($filename) = @{$c->args->{splat}};
+    my ($bucket_name, $filename) = @{$c->args->{splat}};
 
-    $self->model->put_object($bucket_name, $filename, $fh);
+    my $content = $c->req->raw_body;
+
+    $self->model->put_object($bucket_name, $filename, \$content);
 }
 
 sub get_bucket {
     my ($sef, $c) = @_;
     my $bucket_name = $c->args->{bucket};
-    $self->get_bucket($bucket_name);
+    $self->model->get_bucket($bucket_name);
 }
 
 sub delete_object {
     my ($sef, $c) = @_;
-    my $bucket_name = $c->args->{bucket};
-    my ($filename) = @{$c->args->{splat}};
+    my ($bucket_name, $filename) = @{$c->args->{splat}};
 
     $self->model->put_object($bucket_name, $filename);
 }
 
 sub manip_bucket {
     my ($sef, $c) = @_;
-    my $bucket_name = $c->args->{bucket};
+    my ($bucket_name) = @{$c->args->{splat}};
+    return $c->res->server_error;
 }
 
 sub build_app {
@@ -55,35 +62,35 @@ sub build_app {
 
     # get
     $router->connect(
-        '/:bucket/*',
+        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/*',
         { action => 'get_object' },
         { method => ['GET','HEAD'] }
     );
 
     # get dir
     $router->connect(
-        '/:bucket/',
+        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/',
         { action => 'get_bucket' },
         { method => ['GET','HEAD'] }
     );
 
     # put
     $router->connect(
-        '/:bucket/*',
+        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/*',
         { action => 'put_object' },
         { method => ['PUT'] }
     );
 
     # delete
     $router->connect(
-        '/:bucket/*',
+        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/*',
         { action => 'delete_object' },
         { method => ['DELETE'] }
     );
 
     # post manip
     $router->connect(
-        '/:bucket/',
+        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/',
         { action => 'manip_bucket' },
         { method => ['POST'] }
     );

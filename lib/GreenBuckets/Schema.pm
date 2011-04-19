@@ -75,10 +75,11 @@ sub retrieve_fresh_nodes {
     state $rule = Data::Validator->new(
         'bucket_name'  => 'Str',
         'filename' => 'Str',
+        'having' => 'Int',
     )->with('Method');
     my($self, $args) = $rule->validate(@_);
 
-    my @nodes = $self->select_fresh_nodes();
+    my @nodes = $self->select_fresh_nodes( having => $args->{having} );
 
     my %group;
     my $internal_path = internal_path($args->{bucket_name}, $args->{filename});
