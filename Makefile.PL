@@ -4,6 +4,7 @@ all_from 'lib/GreenBuckets.pm';
 
 requires 'Plack';
 requires 'DBIx::Sunny';
+requires 'DBD::mysql';
 requires 'Coro';
 requires 'Furl';
 requires 'Net::DNS::Lite';
