@@ -31,10 +31,11 @@ CREATE TABLE buckets (
 --# INSERT INTO buckets SET name = 'baz';
 
 CREATE TABLE objects (
-    bucket_id INT UNSIGNED NOT NULL,
     fid INT UNSIGNED NOT NULL, --# murmurhash(filename)
+    bucket_id INT UNSIGNED NOT NULL,
     gid SMALLINT UNSIGNED NOT NULL,
-    PRIMARY KEY(bucket_id, fid)
+    PRIMARY KEY(fid, bucket_id),
+    INDEX (bucket_id)
 ) ENGINE=InnoDB;
 
 --# INSERT INTO objects SET bucket_id=1, fid=1, gid=1;

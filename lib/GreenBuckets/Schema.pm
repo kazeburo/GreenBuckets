@@ -15,16 +15,16 @@ __PACKAGE__->select_row(
 
 __PACKAGE__->select_all(
     'select_object_nodes',
-    bucket_id => 'Natural',
     fid => 'Natural',
-    q{SELECT nodes.* FROM nodes, objects WHERE objects.bucket_id = 1 AND objects.fid = 1 AND nodes.gid = objects.gid;}
+    bucket_id => 'Natural',
+    q{SELECT nodes.* FROM nodes, objects WHERE objects.fid = ? AND objects.bucket_id = ? AND nodes.gid = objects.gid;}
 );
 
 __PACKAGE__->select_row(
     'select_object',
-    bucket_id => 'Natural',
     fid => 'Natural',
-    q{SELECT * FROM objects WHERE bucket_id = ? AND fid = ?}
+    bucket_id => 'Natural',
+    q{SELECT * FROM objects WHERE fid = ? bucket_id = ?}
 );
 
 __PACKAGE__->select_all(
@@ -131,9 +131,9 @@ sub insert_object {
         }
         
         $self->query(
-            q{INSERT INTO objects (bucket_id, fid, gid) VALUES (?,?,?)},
-            $bucket_id,
+            q{INSERT INTO objects (fid, bucket_id, gid) VALUES (?,?,?)},
             filename_id($args->{filename}),
+            $bucket_id,
             $gid,
         );
         $txn->commit;
@@ -150,9 +150,9 @@ sub delete_object {
     my($self, $args) = $rule->validate(@_);
 
     $self->query(
-        q{DELETE FROM objects WHERE bucket_id = ? AND fid = ? LIMIT 1},
-        $bucket_id,
+        q{DELETE FROM objects WHERE fid = ? AND bucket_id = ? LIMIT 1},
         filename_id($args->{filename}),
+        $bucket_id,
     );
 }
 
