@@ -156,5 +156,43 @@ sub delete_object {
     );
 }
 
+sub stop_bucket {
+    state $rule = Data::Validator->new(
+        'bucket_id'  => 'Natural',
+    )->with('Method');
+    my($self, $args) = $rule->validate(@_);
+
+    $self->query("UPDATE buckets SET enabled = 0 WHERE id = ?", $args->{bucket_id});
+
+    1;
+}
+
+sub delete_bucket {
+    state $rule = Data::Validator->new(
+        'bucket_id'  => 'Natural',
+    )->with('Method');
+    my($self, $args) = $rule->validate(@_);
+
+    $self->query("UPDATE buckets SET deleted = 1 WHERE id = ?", $args->{bucket_id});
+
+    1;
+}
+
+sub delete_bucket_all {
+    state $rule = Data::Validator->new(
+        'bucket_id'  => 'Natural',
+    )->with('Method');
+    my($self, $args) = $rule->validate(@_);
+
+    my $ret;
+    do {
+        $ret = $self->query("DELETE FROM objects WHERE bucket_id = ? LIMIT 1000", $args->{bucket_id});
+    } while ($ret);
+
+    $self->query("DELETE FROM buckets WHERE id = ?", $args->{bucket_id});
+
+    1;
+}
+
 1;
 
