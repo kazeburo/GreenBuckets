@@ -1,0 +1,16 @@
+#!perl
+
+use strict;
+use warnings;
+use GreenBuckets;
+use Data::Section::Simple;
+
+my $reader = Data::Section::Simple->new('GreenBuckets');
+my $all = $reader->get_data_section;
+
+my $schema =  join ";\n\n", map { my $t = $all->{$_}; $t =~ s/\s$//g; $t } @GreenBuckets::TABLES;
+$schema .= ";\n";
+
+print $schema;
+
+

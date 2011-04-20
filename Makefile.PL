@@ -2,6 +2,7 @@ use inc::Module::Install;
 name 'GreenBuckets';
 all_from 'lib/GreenBuckets.pm';
 
+requires 'Data::Section::Simple';
 requires 'Plack';
 requires 'DBIx::Sunny';
 requires 'DBD::mysql';

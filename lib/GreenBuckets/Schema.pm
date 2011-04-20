@@ -1,4 +1,4 @@
-package GreenBucktes::Schema;
+package GreenBuckets::Schema;
 
 use strict;
 use warnings;
@@ -8,6 +8,7 @@ use parent qw/DBIx::Sunny::Schema/;
 use HTTP::Exception;
 use Data::Validator;
 use List::Util qw/shuffle/;
+use GreenBuckets::Util qw/filename_id gen_rid object_path/;
 
 __PACKAGE__->select_row(
     'select_bucket',
@@ -131,7 +132,7 @@ sub insert_object {
                 1,
                 1
             );
-            $bucket_id = $self->last_insert_id('bucket');
+            $bucket_id = $self->last_insert_id();
         }
         else {
             $bucket_id = $bucket->{id};
