@@ -2,7 +2,7 @@ package GreenBucket::Agent;
 
 use strict;
 use warnings;
-use GreenBucket;
+use GreenBuckets;
 use Coro;
 use Coro::Select;
 use Furl;
@@ -51,6 +51,7 @@ sub put {
     my $content_ref = shift;
  
     my @coros;
+    my @res;
     for my $url ( @$urls ) {
         push @coros, async {
             debugf("put: %s", $url);

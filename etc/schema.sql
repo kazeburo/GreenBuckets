@@ -33,21 +33,22 @@ CREATE TABLE buckets (
 CREATE TABLE objects (
     fid INT UNSIGNED NOT NULL, --# murmurhash(filename)
     bucket_id INT UNSIGNED NOT NULL,
+    rid SMALLINT UNSIGNED NOT NULL,
     gid SMALLINT UNSIGNED NOT NULL,
     PRIMARY KEY(fid, bucket_id),
     INDEX (bucket_id)
 ) ENGINE=InnoDB;
 
---# INSERT INTO objects SET bucket_id=1, fid=1, gid=1;
---# INSERT INTO objects SET bucket_id=1, fid=2, gid=1;
---# INSERT INTO objects SET bucket_id=1, fid=3, gid=2;
---# INSERT INTO objects SET bucket_id=1, fid=4, gid=2;
---# INSERT INTO objects SET bucket_id=2, fid=5, gid=1;
---# INSERT INTO objects SET bucket_id=2, fid=6, gid=1;
---# INSERT INTO objects SET bucket_id=3, fid=7, gid=2;
---# INSERT INTO objects SET bucket_id=3, fid=8, gid=1;
---# INSERT INTO objects SET bucket_id=1, fid=9, gid=2;
---# INSERT INTO objects SET bucket_id=1, fid=10, gid=1;
+--# INSERT INTO objects SET bucket_id=1, fid=1, rid=250 ,gid=1;
+--# INSERT INTO objects SET bucket_id=1, fid=2, rid=251 ,gid=1;
+--# INSERT INTO objects SET bucket_id=1, fid=3, rid=252 ,gid=2;
+--# INSERT INTO objects SET bucket_id=1, fid=4, rid=253 ,gid=2;
+--# INSERT INTO objects SET bucket_id=2, fid=5, rid=254 ,gid=1;
+--# INSERT INTO objects SET bucket_id=2, fid=6, rid=255 ,gid=1;
+--# INSERT INTO objects SET bucket_id=3, fid=7, rid=256 ,gid=2;
+--# INSERT INTO objects SET bucket_id=3, fid=8, rid=257 ,gid=1;
+--# INSERT INTO objects SET bucket_id=1, fid=9, rid=258 ,gid=2;
+--# INSERT INTO objects SET bucket_id=1, fid=10, rid=259 ,gid=1;
 
 --# SELECT * FROM buckets WHERE name = ?;
 --# SELECT nodes.* FROM nodes, objects WHERE objects.bucket_id = 1 AND objects.fid = 1 AND nodes.gid = objects.gid;

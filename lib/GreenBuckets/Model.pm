@@ -5,7 +5,7 @@ use warnings;
 use utf8;
 use Scope::Container;
 use Scope::Container::DBI;
-use GreenBucktes::Util qw/filename_id internal_path/;
+use GreenBucktes::Util qw/filename_id gen_rid internal_path/;
 use GreenBucktes::Schema;
 use GreenBucktes::Dispatcher::Response;
 use List::Util qw/shuffle/;
@@ -129,21 +129,20 @@ sub put_object {
 
     my $try=3;
     my $gid;
+    my $rid;
     for my $f_node ( @f_node ) {
-
-        my $f_gid = $f_node->{gid};
-        my $f_uri = $f_node->{uri};
         
-        my $result = $self->agent->put($f_uri, $content_ref);
+        my $result = $self->agent->put($f_node->{uri}, $content_ref);
 
         if ( $result ) {
-            infof "%s/%s was uploaded to group_id:%s", $bucket, $filename, $f_gid, $f_uri;
-            $gid = $f_gid;
+            infof "%s/%s was uploaded to group_id:%s", $bucket, $filename, $f_node->{gid};
+            $gid = $f_node->{gid};
+            $rid = $f_node->{rid};
             last;
         }
 
-        infof "Failed upload to group_id:%s %s", $f_gid, $f_uri;
-        $self->agent->put($f_uri);
+        infof "Failed upload %s/%s to group_id:%s", $bucket, $filename, $f_node->{gid};
+        $self->agent->delete($f_node->{uri});
 
         --$try;
         if ( $try == 0 ) {
@@ -159,7 +158,8 @@ sub put_object {
 
     my $sc2 = start_scope_container();
     $master->insert_object( 
-        gid => $gid, 
+        gid => $gid,
+        rid => $rid,
         bucket_name => $bucket_name,
         filename => $filename
     );

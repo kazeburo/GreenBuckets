@@ -2,7 +2,7 @@ package GreenBuckets;
 
 use strict;
 use warnings;
-use 5.12;
+use 5.12.0;
 
 our $VERSION = 0.01;
 
