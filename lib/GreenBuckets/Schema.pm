@@ -6,9 +6,15 @@ use utf8;
 use 5.10.0;
 use parent qw/DBIx::Sunny::Schema/;
 use HTTP::Exception;
-use Data::Validator;
 use List::Util qw/shuffle/;
 use GreenBuckets::Util qw/filename_id gen_rid object_path/;
+use Mouse::Util::TypeConstraints;
+
+subtype 'Natural'
+    => as 'Int'
+    => where { $_ > 0 };
+
+no Mouse::Util::TypeConstraints;
 
 __PACKAGE__->select_row(
     'select_bucket',
@@ -27,21 +33,21 @@ __PACKAGE__->select_row(
     'select_object',
     fid => 'Natural',
     bucket_id => 'Natural',
-    q{SELECT * FROM objects WHERE fid = ? bucket_id = ?}
+    q{SELECT * FROM objects WHERE fid = ? AND bucket_id = ?}
 );
 
 __PACKAGE__->select_all(
-    'select_fresh_node',
+    'select_fresh_nodes',
     having => 'Natural',
-    q{SELECT * FROM nodes WHERE gid IN (SELECT gid FROM nodes WHERE can_read=1 AND is_fresh=1 GROUP BY gid HAVING COUNT(gid) = ?}
+    q{SELECT * FROM nodes WHERE gid IN (SELECT gid FROM nodes WHERE can_read=1 AND is_fresh=1 GROUP BY gid HAVING COUNT(gid) = ?)}
 );
 
 sub retrieve_object {
-    state $rule = Data::Validator->new(
+    my $self = shift;
+    my $args= $self->args(
         'bucket_id'  => 'Natural',
         'filename' => 'Str',
-    )->with('Method');
-    my($self, $args) = $rule->validate(@_);
+    );
 
     my $fid = filename_id($args->{filename});
     $self->select_object(
@@ -51,11 +57,11 @@ sub retrieve_object {
 }
 
 sub retrieve_object_nodes {
-    state $rule = Data::Validator->new(
+    my $self = shift;
+    my $args = $self->args(
         'bucket_id'  => 'Natural',
         'filename' => 'Str',
-    )->with('Method');
-    my($self, $args) = $rule->validate(@_);
+    );
 
     my $fid = filename_id($args->{filename});
     my @nodes = $self->select_object_nodes(
@@ -78,12 +84,12 @@ sub retrieve_object_nodes {
 }
 
 sub retrieve_fresh_nodes {
-    state $rule = Data::Validator->new(
+    my $self = shift;
+    my $args = $self->args(
         'bucket_name'  => 'Str',
         'filename' => 'Str',
         'having' => 'Int',
-    )->with('Method');
-    my($self, $args) = $rule->validate(@_);
+    );
 
     my @nodes = $self->select_fresh_nodes( having => $args->{having} );
 
@@ -107,13 +113,13 @@ sub retrieve_fresh_nodes {
 }
 
 sub insert_object {
-    state $rule = Data::Validator->new(
+    my $self = shift;
+    my $args = $self->args(
         'rid'  => 'Natural',
         'gid'  => 'Natural',
         'bucket_name'  => 'Str',
         'filename' => 'Str',
-    )->with('Method');
-    my($self, $args) = $rule->validate(@_);
+    );
 
     {
         my $txn = $self->txn_scope;
@@ -152,11 +158,11 @@ sub insert_object {
 }
 
 sub delete_object {
-    state $rule = Data::Validator->new(
+    my $self = shift;
+    my $args = $self->args(
         'bucket_id'  => 'Natural',
         'filename' => 'Str',
-    )->with('Method');
-    my($self, $args) = $rule->validate(@_);
+    );
 
     $self->query(
         q{DELETE FROM objects WHERE fid = ? AND bucket_id = ? LIMIT 1},
@@ -166,10 +172,10 @@ sub delete_object {
 }
 
 sub stop_bucket {
-    state $rule = Data::Validator->new(
+    my $self = shift;
+    my $args = $self->args(
         'bucket_id'  => 'Natural',
-    )->with('Method');
-    my($self, $args) = $rule->validate(@_);
+    );
 
     $self->query("UPDATE buckets SET enabled = 0 WHERE id = ?", $args->{bucket_id});
 
@@ -177,10 +183,10 @@ sub stop_bucket {
 }
 
 sub delete_bucket {
-    state $rule = Data::Validator->new(
+    my $self = shift;
+    my $args = $self->args(
         'bucket_id'  => 'Natural',
-    )->with('Method');
-    my($self, $args) = $rule->validate(@_);
+    );
 
     $self->query("UPDATE buckets SET deleted = 1 WHERE id = ?", $args->{bucket_id});
 
@@ -188,11 +194,10 @@ sub delete_bucket {
 }
 
 sub delete_bucket_all {
-    state $rule = Data::Validator->new(
+    my $self = shift;
+    my $args = $self->args(
         'bucket_id'  => 'Natural',
-    )->with('Method');
-    my($self, $args) = $rule->validate(@_);
-
+    );
     my $ret;
     do {
         $ret = $self->query("DELETE FROM objects WHERE bucket_id = ? LIMIT 1000", $args->{bucket_id});
