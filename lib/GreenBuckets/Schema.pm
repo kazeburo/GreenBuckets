@@ -14,6 +14,11 @@ subtype 'Natural'
     => as 'Int'
     => where { $_ > 0 };
 
+subtype 'Flag'
+    => as 'Int'
+    => where { $_ == 0 || $_ == 1 };
+
+
 no Mouse::Util::TypeConstraints;
 
 __PACKAGE__->select_row(
@@ -60,18 +65,19 @@ sub retrieve_object_nodes {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
+        'bucket_name' => 'Str',
         'filename' => 'Str',
     );
 
     my $fid = filename_id($args->{filename});
-    my @nodes = $self->select_object_nodes(
+    my $nodes = $self->select_object_nodes(
         bucket_id => $args->{bucket_id},
         fid => $fid
     );
 
-    return unless @nodes;
+    return unless @$nodes;
 
-    my $rid = $nodes[0]->{rid};
+    my $rid = $nodes->[0]->{rid};
     my $object_path = object_path($args->{bucket_name}, $args->{filename}, $rid);
     my @uris =  sort {
         filename_id($a->{uri}) <=> filename_id($b->{uri})
@@ -79,7 +85,7 @@ sub retrieve_object_nodes {
         my $node = $_->{node};
         $node =~ s!/$!!;
         { uri => $node . '/' . $object_path, %{$_} }
-    } @nodes;
+    } @$nodes;
     @uris;
 }
 
@@ -91,12 +97,12 @@ sub retrieve_fresh_nodes {
         'having' => 'Int',
     );
 
-    my @nodes = $self->select_fresh_nodes( having => $args->{having} );
+    my $nodes = $self->select_fresh_nodes( having => $args->{having} );
 
     my %group;
     my $rid = gen_rid();
     my $object_path = object_path($args->{bucket_name}, $args->{filename}, $rid);
-    for my $node ( @nodes ) {
+    for my $node ( @$nodes ) {
         $group{$node->{gid}} ||= [];
         my $node_name = $node->{node};
         $node_name =~ s!/$!!;
@@ -127,8 +133,10 @@ sub insert_object {
         my $bucket = $self->select_bucket(
             name => $args->{bucket_name},
         );
-        die "bucket:". $args->{bucket_name} ." is disabled" if !$bucket->{enabled};
-        die "bucket:". $args->{bucket_name} ." is deleted" if $bucket->{deleted};
+        if ( $bucket ) {
+            die "bucket:". $args->{bucket_name} ." is disabled" if !$bucket->{enabled};
+            die "bucket:". $args->{bucket_name} ." is deleted" if $bucket->{deleted};
+        }
 
         my $bucket_id;
         if (!$bucket) {
@@ -136,7 +144,7 @@ sub insert_object {
                 q{INSERT INTO buckets (name, enabled, deleted) VALUES (?,?,?)},
                 $args->{bucket_name},
                 1,
-                1
+                0
             );
             $bucket_id = $self->last_insert_id();
         }
@@ -175,23 +183,21 @@ sub stop_bucket {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
+        'enabled' => { isa => 'Flag', default => 0 }
     );
-
-    $self->query("UPDATE buckets SET enabled = 0 WHERE id = ?", $args->{bucket_id});
-
-    1;
+    $self->query("UPDATE buckets SET enabled = ? WHERE id = ?", $args->{enabled}, $args->{bucket_id});
 }
+
 
 sub delete_bucket {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
+        'deleted' => { isa => 'Flag', default => 1 }
     );
-
-    $self->query("UPDATE buckets SET deleted = 1 WHERE id = ?", $args->{bucket_id});
-
-    1;
+    $self->query("UPDATE buckets SET deleted = ? WHERE id = ?", $args->{deleted}, $args->{bucket_id});
 }
+
 
 sub delete_bucket_all {
     my $self = shift;
@@ -201,11 +207,9 @@ sub delete_bucket_all {
     my $ret;
     do {
         $ret = $self->query("DELETE FROM objects WHERE bucket_id = ? LIMIT 1000", $args->{bucket_id});
-    } while ($ret);
+    } while ( $ret > 0 );
 
     $self->query("DELETE FROM buckets WHERE id = ?", $args->{bucket_id});
-
-    1;
 }
 
 1;
