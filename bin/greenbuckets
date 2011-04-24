@@ -4,7 +4,7 @@ use strict;
 use warnings;
 use GreenBuckets::CLI;
 
-GreenBuckets::CLI->run;
+GreenBuckets::CLI->dispatch;
 
 
 1;

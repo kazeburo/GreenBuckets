@@ -142,7 +142,7 @@ sub put_object {
         }
 
         infof "Failed upload %s/%s to group_id:%s", $bucket, $filename, $f_node->{gid};
-        $self->agent->delete($f_node->{uri});
+        $self->enqueue('delete_files', $f_node->{uri});
 
         --$try;
         if ( $try == 0 ) {
@@ -195,10 +195,32 @@ sub delete_object {
     # remove file
     my @r_uri = map { $_->{uri} }
         grep { $_->{can_read} && $_->{is_fresh} } @uri;
-    $self->agent->delete(\@r_uri);
+    $self->enqueue('delete_files', \@r_uri);
 
     return $self->res_ok;
 }
+
+sub jq_delete_files {
+    my $self = shift;
+    my @uri = @_;
+    $self->agent->delete(\@r_uri);
+}
+
+sub dequeue {
+    my $self = shift;
+    my $queue = $self->master->retrieve_queue;
+    return unless $queue;
+    $queue->{args} = Data::MessagePack->unpack($queue->{args});
+    $queue;
+}
+
+sub enqueue {
+    my $self = shift;
+    my ($func, $args ) = @_;
+    $args = Data::MessagePack->pack($args);
+    $self->master->create_queue( func => $func, args => $args );
+}
+
 
 1;
 

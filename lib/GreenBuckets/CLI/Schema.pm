@@ -1,17 +1,14 @@
-package GreenBuckets::CLI::Command::schema;
+package GreenBuckets::CLI::Schema;
 
 use strict;
 use warnings;
-use GreenBuckets::CLI -command;
+use parent qw/App::CLI::Command/;
 use GreenBuckets;
 use Data::Section::Simple;
-
-sub abstract { "Output greenbuckets database schema" }
 
 sub run {
     my ($self, $opt, $args) = @_;
 
-    my $database = $opt->{database} || 'greenbuckets';
 
     my $reader = Data::Section::Simple->new('GreenBuckets');
     my $all = $reader->get_data_section;
@@ -25,4 +22,19 @@ sub run {
 }
 
 1;
+
+__END__
+
+=encoding utf8
+
+=head1 NAME
+
+GreenBuckets::CLI::Schema - output GreenBuckets datatabse schema
+
+=head1 SYNOPSIS
+
+  $ greenbuckets schema | mysql greenbuckets
+
+=cut
+
 

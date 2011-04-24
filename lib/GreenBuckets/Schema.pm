@@ -47,6 +47,25 @@ __PACKAGE__->select_all(
     q{SELECT * FROM nodes WHERE gid IN (SELECT gid FROM nodes WHERE can_read=1 AND is_fresh=1 GROUP BY gid HAVING COUNT(gid) = ?)}
 );
 
+__PACKAGE__->select_all(
+    'select_queue',
+    limit => { isa =>'Natural', default => 10 },
+    q{SELECT id FROM jobqueue ORDER BY id LIMIT ?}
+);
+
+__PACKAGE__->query(
+    'delete_queue',
+    id => { isa =>'Natural' },
+    q{DELETE FROM jobqueue WHERE  id =?},
+);
+
+__PACKAGE__->query(
+    'insert_queue',
+    func => { isa =>'Str' },
+    args => { isa =>'Str' },
+    q{INSERT INTO  jobqueue (func, args) VALUES (?,?) },
+);
+
 sub retrieve_object {
     my $self = shift;
     my $args= $self->args(
@@ -210,6 +229,34 @@ sub delete_bucket_all {
     } while ( $ret > 0 );
 
     $self->query("DELETE FROM buckets WHERE id = ?", $args->{bucket_id});
+}
+
+sub retrieve_queue {
+    my $self = shift;
+    my $args = $self->args(
+        'limit'  => { isa => 'Natural', default => 10 },
+    );
+    my $queues = $self->select_queue( limit => $args->{limit} );
+    return unless @$queues;
+    
+    my $queue;
+    for my $r_queue ( @$queues ) {
+        my $result = $self->delete_queue( id => $r_queue->{id} );
+        if ( $result == 1 ) {
+            $queue = $r_queue;
+            last;
+        }
+    }
+    $queue;
+}
+
+sub create_queue {
+    my $self = shift;
+    my $args = $self->args(
+        'func' => 'Str',
+        'args'  => { isa => 'Str' },
+    );
+    $self->insert_queue($args);
 }
 
 1;

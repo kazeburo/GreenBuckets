@@ -2,8 +2,7 @@ package GreenBuckets::CLI;
 
 use strict;
 use warnings;
-use App::Cmd::Setup -app;
-
+use parent qw/App::CLI/;
 
 1;
 
