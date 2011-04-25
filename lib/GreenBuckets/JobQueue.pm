@@ -68,7 +68,11 @@ sub run {
         local $SIG{TERM} = sub { $stop++ };
 
         while ( !$stop ) {
-            my $result = $self->work;
+            $scoreboard->update('A');
+            my $sc = start_scope_container;
+            my $model = $self->model;
+            my $result = $model->dequeue;
+            undef $sc;
             $scoreboard->update('.');
             $i++ if $result;
             last if $i > $MAX_JOB;
@@ -82,36 +86,6 @@ sub run {
     waitpid( $status_server_pid, 0 );
 }
 
-
-sub work {
-    my $self = shift;
-    my $sc = start_scope_container;
-    my $model = $self->model;
-    my $scoreboard = $self->scoreboard;
-
-    $scoreboard->update('A dequeue');
-    my $queue = $model->dequeue;
-    return unless $queue;
-
-    my $func = $queue->{func};
-    debugf "[%s] func:%s args:%s", $$, $func, $queue->{args};
-
-    my $subref = $model->can("jobq_". $func);
-
-    if ( !$subref ) {
-        croak "[$$] func:$func not found";
-    }
-
-    $scoreboard->update(sprintf 'A func:%s',$func);
-    try {
-        $subref->($model, $queue->{args});
-    }
-    catch {
-        croak "[$$] func:$func failed: ". $_;
-    };
-
-    1;
-}
 
 sub status_server {
     my $self = shift;
@@ -149,15 +123,11 @@ sub status_server {
             else {
                 $idle++;
             }
-            $raw_stats .= sprintf "%-14d %s\n", $pid, $stats->{$pid}
         }
         $raw_stats = <<EOF;
 Uptime: $uptime
 BusyWorkers: $busy
 IdleWorkers: $idle
---
-pid       Status Counter Comment
-$raw_stats
 EOF
         print $client $raw_stats;
     }

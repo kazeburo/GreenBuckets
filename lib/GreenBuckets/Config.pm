@@ -17,79 +17,79 @@ sub load {
 }
 
 has 'dispatcher_port' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Natural',
     default => 5500,
 );
 
 has 'jobqueue_worker_port' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Natural',
     default => 5501,
 );
 
 has 'user' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Str',
-    default => 'admin',
+    default => '',
 );
 
 has 'passwd' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Str',
-    default => 'admin',
+    default => '',
 );
 
 has 'dav_user' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Str',
-    default => 'admin',
+    default => '',
 );
 
 has 'dav_passwd' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Str',
-    default => 'admin',
+    default => '',
 );
 
 has 'allow_from' => (
-    is => 'r',
+    is => 'ro',
     isa => 'ArrayRef[Str]',
     default => [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!]
 );
 
 has 'front_proxy' => (
-    is => 'r',
+    is => 'ro',
     isa => 'ArrayRef[Str]',
     default => [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!]
 );
 
 has 'master' => (
-    is => 'r',
+    is => 'ro',
     isa => 'ArrayRef[Str]',
     required => 1,
 );
 
 has 'slave' => (
-    is => 'r',
+    is => 'ro',
     isa => 'ArrayRef[Str]',
     required => 1,
 );
 
 has 'replica' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Natural',
     default => 3,
 );
 
 has 'dispatcher_worker' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Natural',
     default => 20,
 );
 
 has 'jobqueue_worker' => (
-    is => 'r',
+    is => 'ro',
     isa => 'Natural',
     default => 5,
 );

@@ -5,7 +5,7 @@ use warnings;
 use 5.10.0;
 
 our $VERSION = 0.01;
-our @TABLES = qw/nodes buckets objects/;
+our @TABLES = qw/nodes buckets objects jobqueue/;
 
 1;
 __DATA__
@@ -36,6 +36,14 @@ CREATE TABLE objects (
     PRIMARY KEY(fid, bucket_id),
     INDEX (bucket_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+@@ jobqueue
+CREATE TABLE jobqueue (
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    func VARCHAR(64),
+    args BLOB
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
 
 @@ config
 return +{

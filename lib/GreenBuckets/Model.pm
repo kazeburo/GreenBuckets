@@ -3,12 +3,14 @@ package GreenBucktes::Model;
 use strict;
 use warnings;
 use utf8;
+use Carp qw/croak/;
 use Scope::Container;
 use Scope::Container::DBI;
 use GreenBuckets::Util qw/filename_id gen_rid object_path/;
 use GreenBuckets::Schema;
 use GreenBuckets::Dispatcher::Response;
 use List::Util qw/shuffle/;
+use Try::Tiny;
 use HTTP::Exception;
 use Log::Minimal;
 use Mouse;
@@ -35,10 +37,16 @@ sub master {
 
 sub agent {
     my $self = shift;
-    $self->{_agent} ||= GreenBucktes::Agent->new(
-        user => $self->config->dav_user,
-        passwd => $self->config->dav_passwd,
-    );
+    return $self->{_agent} if $self->{_agent};
+    if ( $self->config->dav_user ) {
+        $self->{_agent} = GreenBucktes::Agent->new(
+            user =>  $self->config->dav_user,
+            passwd => $self->config->dav_passwd,
+        );
+    }
+    else {
+        $self->{_agent} = GreenBucktes::Agent->new();
+    }
     $self->{_agent};
 }
 
@@ -213,8 +221,22 @@ sub dequeue {
     my $self = shift;
     my $queue = $self->master->retrieve_queue;
     return unless $queue;
-    $queue->{args} = Data::MessagePack->unpack($queue->{args});
-    $queue;
+    my $args = Data::MessagePack->unpack($queue->{args});
+    my $func = $queue->{func};
+
+    debugf "execute func:%s with args:%s", $func, $args;
+    my $subref = $self->can("jobq_". $func);
+
+    if ( !$subref ) {
+        croak "func:$func not found";
+    }
+
+    try {
+        $subref->($self, $queue->{args});
+    } catch {
+        croak "func:$func failed: ". $_;
+    };
+    1;
 }
 
 sub enqueue {
