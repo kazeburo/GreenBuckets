@@ -55,13 +55,13 @@ has 'dav_passwd' => (
 has 'allow_from' => (
     is => 'ro',
     isa => 'ArrayRef[Str]',
-    default => [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!]
+    default => sub { [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!] },
 );
 
 has 'front_proxy' => (
     is => 'ro',
     isa => 'ArrayRef[Str]',
-    default => [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!]
+    default => sub { [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!] },
 );
 
 has 'master' => (
@@ -72,7 +72,7 @@ has 'master' => (
 
 has 'slave' => (
     is => 'ro',
-    isa => 'ArrayRef[Str]',
+    isa => 'ArrayRef[Defined]',
     required => 1,
 );
 
