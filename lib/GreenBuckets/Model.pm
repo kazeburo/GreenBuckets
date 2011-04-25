@@ -5,36 +5,39 @@ use warnings;
 use utf8;
 use Scope::Container;
 use Scope::Container::DBI;
-use GreenBucktes::Util qw/filename_id gen_rid internal_path/;
-use GreenBucktes::Schema;
-use GreenBucktes::Dispatcher::Response;
+use GreenBuckets::Util qw/filename_id gen_rid object_path/;
+use GreenBuckets::Schema;
+use GreenBuckets::Dispatcher::Response;
 use List::Util qw/shuffle/;
 use HTTP::Exception;
 use Log::Minimal;
-use Class::Accessor::Lite (
-    new => 1,
-    ro => [qw/config/],
+use Mouse;
+
+has 'config' => (
+    is => 'ro',
+    isa => 'GreenBuckets::Config',
+    required => 1,
 );
 
 sub slave {
     my $self = shift;
     local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
-    my $dbh = Scope::Container::DBI->new($self->config->{slave});
-    GreenBucktes::Schema->new(dbh=>$dbh, readonly=1);
+    my $dbh = Scope::Container::DBI->new($self->config->slave);
+    GreenBucktes::Schema->new(dbh=>$dbh, readonly=>1);
 }
 
 sub master {
     my $self = shift;
     local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
-    my $dbh = Scope::Container::DBI->new($self->config->{master});
+    my $dbh = Scope::Container::DBI->new($self->config->master);
     GreenBucktes::Schema->new(dbh=>$dbh);
 }
 
 sub agent {
-    my $self - shift;
+    my $self = shift;
     $self->{_agent} ||= GreenBucktes::Agent->new(
-        user => ...,
-        passwd => ...
+        user => $self->config->dav_user,
+        passwd => $self->config->dav_passwd,
     );
     $self->{_agent};
 }
@@ -83,7 +86,7 @@ sub get_object {
         $r_res->header($header) = $res->header($header);
     }
     $r_res->body($res->body);
-    $r_es;
+    $r_res;
 }
 
 sub get_bucket {
@@ -130,7 +133,7 @@ sub put_object {
     my $try=3;
     my $gid;
     my $rid;
-    for my $f_node ( @f_node ) {
+    for my $f_node ( @f_nodes ) {
         
         my $result = $self->agent->put($f_node->{uri}, $content_ref);
 
@@ -186,7 +189,7 @@ sub delete_object {
     );
 
     $master->delete_object(
-        bucket_id => $bucket_id->{id}, 
+        bucket_id => $bucket->{id}, 
         filename => $filename
     );
 
@@ -200,10 +203,10 @@ sub delete_object {
     return $self->res_ok;
 }
 
-sub jq_delete_files {
+sub jobq_delete_files {
     my $self = shift;
-    my @uri = @_;
-    $self->agent->delete(\@r_uri);
+    my $r_uri = shift;
+    $self->agent->delete($r_uri);
 }
 
 sub dequeue {
@@ -221,6 +224,6 @@ sub enqueue {
     $self->master->create_queue( func => $func, args => $args );
 }
 
-
+__PACKAGE__->meta->make_immutable();
 1;
 

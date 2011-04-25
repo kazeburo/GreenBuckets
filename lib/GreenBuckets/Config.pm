@@ -16,10 +16,16 @@ sub load {
     __PACKAGE__->new($config);
 }
 
-has 'port' => (
+has 'dispatcher_port' => (
     is => 'r',
     isa => 'Natural',
-    default => 5000,
+    default => 5500,
+);
+
+has 'jobqueue_worker_port' => (
+    is => 'r',
+    isa => 'Natural',
+    default => 5501,
 );
 
 has 'user' => (
@@ -29,6 +35,18 @@ has 'user' => (
 );
 
 has 'passwd' => (
+    is => 'r',
+    isa => 'Str',
+    default => 'admin',
+);
+
+has 'dav_user' => (
+    is => 'r',
+    isa => 'Str',
+    default => 'admin',
+);
+
+has 'dav_passwd' => (
     is => 'r',
     isa => 'Str',
     default => 'admin',
@@ -77,3 +95,5 @@ has 'jobqueue_worker' => (
 );
 
 __PACKAGE__->meta->make_immutable();
+1;
+
