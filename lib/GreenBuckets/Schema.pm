@@ -50,7 +50,7 @@ __PACKAGE__->select_all(
 __PACKAGE__->select_all(
     'select_queue',
     limit => { isa =>'Natural', default => 10 },
-    q{SELECT id FROM jobqueue ORDER BY id LIMIT ?}
+    q{SELECT * FROM jobqueue ORDER BY id LIMIT ?}
 );
 
 __PACKAGE__->query(

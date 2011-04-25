@@ -10,7 +10,8 @@ if ( !$ENV{TEST_MYSQLD} ) {
     plan skip_all => 'TEST_MYSQLD is false';
 }
 
-my $mysqld = t::TestMysql->setup() or plan skip_all => $t::TestMysql::errstr;
+my $testmysql = t::TestMysql->new;
+my $mysqld = $testmysql->setup or plan skip_all => $testmysql->errstr;
 
 my $dbh = DBIx::Sunny->connect($mysqld->dsn( dbname => "test" ));
 my $schema= GreenBuckets::Schema->new( dbh => $dbh );
@@ -128,6 +129,15 @@ ok ! $schema->retrieve_object( bucket_id => 4, filename => 2 );
 ok $schema->delete_bucket_all( bucket_id => 4 );
 ok ! $schema->select_bucket( name => 'test');
 ok ! $schema->retrieve_object( bucket_id => 4, filename => 1 );
+
+subtest 'queue' => sub {
+    ok ! $schema->retrieve_queue;
+    ok $schema->create_queue( func => 'test', args => 'bar' );
+    ok $schema->create_queue( func => 'foo', args => 'baz' );
+    is_deeply $schema->retrieve_queue, { id => 1, func => 'test', args => 'bar' };
+    is_deeply $schema->retrieve_queue, { id => 2, func => 'foo', args => 'baz' };
+    ok ! $schema->retrieve_queue;
+};
 
 done_testing;
 
