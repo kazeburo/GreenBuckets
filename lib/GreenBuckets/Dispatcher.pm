@@ -1,20 +1,20 @@
-package GreenBucktes::Dispatcher;
+package GreenBuckets::Dispatcher;
 
 use strict;
 use warnings;
 use utf8;
 use Plack::Builder;
-use GreenBucktes::Dispatcher::Request;
-use GreenBucktes::Dispatcher::Response;
-use GreenBucktes::Dispatcher::Connection;
-use GreenBucktes::Model;
+use GreenBuckets::Dispatcher::Request;
+use GreenBuckets::Dispatcher::Response;
+use GreenBuckets::Dispatcher::Connection;
+use GreenBuckets::Model;
 use Class::Accessor::Lite (
     new => 1,
 );
 
 sub model {
     my $self = shift;
-    $self->{_model} ||= GreenBucktes::Model->new(
+    $self->{_model} ||= GreenBuckets::Model->new(
         config => ... 
     );
     $self->{_model};
@@ -99,11 +99,11 @@ sub build_app {
         my $env = shift;
         my $psgi_res;
 
-        my $s_req = GreenBucktes::Dispatcher::Request->new($env);
-        my $s_res = GreenBucktes::Dispatcher::Response->new(200);
+        my $s_req = GreenBuckets::Dispatcher::Request->new($env);
+        my $s_res = GreenBuckets::Dispatcher::Response->new(200);
         $s_res->content_type('text/html; charset=UTF-8');
 
-        my $c = GreenBucktes::Dispatcher::Connection->new({
+        my $c = GreenBuckets::Dispatcher::Connection->new({
             req => $s_req,
             res => $s_res,
             stash => {},

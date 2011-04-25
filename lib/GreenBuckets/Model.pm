@@ -27,34 +27,34 @@ sub slave {
     my $self = shift;
     local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
     my $dbh = Scope::Container::DBI->new($self->config->slave);
-    GreenBucktes::Schema->new(dbh=>$dbh, readonly=>1);
+    GreenBuckets::Schema->new(dbh=>$dbh, readonly=>1);
 }
 
 sub master {
     my $self = shift;
     local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
     my $dbh = Scope::Container::DBI->new($self->config->master);
-    GreenBucktes::Schema->new(dbh=>$dbh);
+    GreenBuckets::Schema->new(dbh=>$dbh);
 }
 
 sub agent {
     my $self = shift;
     return $self->{_agent} if $self->{_agent};
     if ( $self->config->dav_user ) {
-        $self->{_agent} = GreenBucktes::Agent->new(
+        $self->{_agent} = GreenBuckets::Agent->new(
             user =>  $self->config->dav_user,
             passwd => $self->config->dav_passwd,
         );
     }
     else {
-        $self->{_agent} = GreenBucktes::Agent->new();
+        $self->{_agent} = GreenBuckets::Agent->new();
     }
     $self->{_agent};
 }
 
 sub res_ok {
     my $self = shift;
-    my $res = GreenBucktes::Dispatcher::Response->new(200);
+    my $res = GreenBuckets::Dispatcher::Response->new(200);
     $res->body("OK");
 }
 
@@ -91,7 +91,7 @@ sub get_object {
         HTTP::Exception->throw(500);
     }
 
-    my $r_res = GreenBucktes::Dispatcher::Response->new(200);
+    my $r_res = GreenBuckets::Dispatcher::Response->new(200);
     for my $header ( qw/server content_type last_modified/ ) {
         $r_res->header($header) = $res->header($header);
     }

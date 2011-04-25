@@ -1,4 +1,4 @@
-package GreenBucktes::Dispatcher::Connection;
+package GreenBuckets::Dispatcher::Connection;
 
 use strict;
 use warnings;
