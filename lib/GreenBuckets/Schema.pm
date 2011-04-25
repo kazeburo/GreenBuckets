@@ -7,19 +7,8 @@ use 5.10.0;
 use parent qw/DBIx::Sunny::Schema/;
 use HTTP::Exception;
 use List::Util qw/shuffle/;
+use GreenBuckets;
 use GreenBuckets::Util qw/filename_id gen_rid object_path/;
-use Mouse::Util::TypeConstraints;
-
-subtype 'Natural'
-    => as 'Int'
-    => where { $_ > 0 };
-
-subtype 'Flag'
-    => as 'Int'
-    => where { $_ == 0 || $_ == 1 };
-
-
-no Mouse::Util::TypeConstraints;
 
 __PACKAGE__->select_row(
     'select_bucket',

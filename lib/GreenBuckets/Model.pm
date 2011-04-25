@@ -1,4 +1,4 @@
-package GreenBucktes::Model;
+package GreenBuckets::Model;
 
 use strict;
 use warnings;
@@ -20,6 +20,8 @@ has 'config' => (
     isa => 'GreenBuckets::Config',
     required => 1,
 );
+
+__PACKAGE__->meta->make_immutable();
 
 sub slave {
     my $self = shift;
@@ -246,6 +248,6 @@ sub enqueue {
     $self->master->create_queue( func => $func, args => $args );
 }
 
-__PACKAGE__->meta->make_immutable();
+
 1;
 

@@ -7,32 +7,25 @@ use DBIx::Sunny;
 use Test::mysqld;
 use GreenBuckets;
 use GreenBuckets::Util qw/filename_id/;
-use Class::Accessor::Lite (
-    new => 1,
-    ro => [qw/mysqld/]
-);
 
 our $errstr = '';
-
-sub errstr {
-    my $self = shift;
-    return $errstr;
-}
+our $mysqld;
 
 sub setup {
-    my $self = shift;
     $errstr = '';
-    $self->{mysqld} = Test::mysqld->new(
+    return $mysqld if $mysqld;
+
+    $mysqld = Test::mysqld->new(
         my_cnf => {
             'bind-address' => '127.0.0.1', # no TCP socket
         }
     );
-    if ( !$self->mysqld ) {
+    if ( !$mysqld ) {
         $errstr = $Test::mysqld::errstr;
         return;
     }
 
-    my $dbh = DBIx::Sunny->connect($self->mysqld->dsn( dbname => "test" ));
+    my $dbh = DBIx::Sunny->connect($mysqld->dsn( dbname => "test" ));
 
     my $reader = Data::Section::Simple->new('GreenBuckets');
     my $all_tables = $reader->get_data_section;
@@ -68,7 +61,7 @@ sub setup {
     $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=258 ,gid=2},filename_id(9));
     $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=259 ,gid=1},filename_id(10));
 
-    $self->mysqld;
+    $mysqld;
 }
 
 1;

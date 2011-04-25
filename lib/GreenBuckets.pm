@@ -3,10 +3,23 @@ package GreenBuckets;
 use strict;
 use warnings;
 use 5.10.0;
+use Mouse;
+use Mouse::Util::TypeConstraints;
+
+subtype 'Natural'
+    => as 'Int'
+    => where { $_ > 0 };
+
+subtype 'Flag'
+    => as 'Int'
+    => where { $_ == 0 || $_ == 1 };
+
+no Mouse::Util::TypeConstraints;
 
 our $VERSION = 0.01;
 our @TABLES = qw/nodes buckets objects jobqueue/;
 
+__PACKAGE__->meta->make_immutable();
 1;
 __DATA__
 @@ nodes

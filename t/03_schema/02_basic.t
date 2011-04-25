@@ -10,8 +10,7 @@ if ( !$ENV{TEST_MYSQLD} ) {
     plan skip_all => 'TEST_MYSQLD is false';
 }
 
-my $testmysql = t::TestMysql->new;
-my $mysqld = $testmysql->setup or plan skip_all => $testmysql->errstr;
+my $mysqld = t::TestMysql->setup or plan skip_all => $t::TestMysql::errstr; 
 
 my $dbh = DBIx::Sunny->connect($mysqld->dsn( dbname => "test" ));
 my $schema= GreenBuckets::Schema->new( dbh => $dbh );

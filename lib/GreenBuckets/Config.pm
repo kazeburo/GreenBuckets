@@ -1,13 +1,7 @@
 package GreenBuckets::Config;
 
+use GreenBuckets;
 use Mouse;
-use Mouse::Util::TypeConstraints;
-
-subtype 'Natural'
-    => as 'Int'
-    => where { $_ > 0 };
-
-no Mouse::Util::TypeConstraints;
 
 sub load {
     my $class = shift;
