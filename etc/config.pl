@@ -3,7 +3,7 @@ return +{
     dispatcher_port => 5000,
 
     # listen port of worker's status sever 
-    jobqueue_worker_port => 5100,
+    jobqueue_worker_port => 5101,
 
     # dispatcher's basic authorization id/pass
     # only used modification methods like PUT,POST,DELETE

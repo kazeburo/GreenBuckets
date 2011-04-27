@@ -66,27 +66,35 @@ ok( $nodes[0]->{gid});
 ok( $nodes[0]->{rid});
 ok( $nodes[0]->{uri});
 
+is_deeply $schema->retrieve_or_insert_bucket( name => 'test'),
+    { id => 4, name => 'test', enabled => 1, deleted => 0 }; 
+
+is_deeply $schema->retrieve_or_insert_bucket( name => 'test2'),
+    { id => 5, name => 'test2', enabled => 1, deleted => 0 }; 
+
+my $bucket1 = $schema->select_bucket( name => 'test');
+is_deeply $bucket1, { id => 4, name => 'test', enabled => 1, deleted => 0 }; 
+
 ok $schema->insert_object(
     rid => 250,
     gid => 1,
-    bucket_name => 'test',
+    bucket_id => 4,
     filename => 1
 );
 
 ok $schema->insert_object(
     rid => 250,
     gid => 1,
-    bucket_name => 'test',
+    bucket_id => 4,
     filename => 2
 );
-
-my $bucket1 = $schema->select_bucket( name => 'test');
-is_deeply $bucket1, { id => 4, name => 'test', enabled => 1, deleted => 0 }; 
 
 is_deeply $schema->retrieve_object( bucket_id => $bucket1->{id}, filename => 1 ),
     { fid => filename_id(1), bucket_id => 4, rid => 250, gid => 1 };
 is_deeply $schema->retrieve_object( bucket_id => $bucket1->{id}, filename => 2 ),
     { fid => filename_id(2), bucket_id => 4, rid => 250, gid => 1 };
+
+
 
 ok $schema->stop_bucket( bucket_id => 4 );
 is_deeply $schema->select_bucket( name => 'test'), { id => 4, name => 'test', enabled => 0, deleted => 0 }; 

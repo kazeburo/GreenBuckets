@@ -136,49 +136,57 @@ sub retrieve_fresh_nodes {
     map { { rid => $rid, gid => $_, uri => $group{$_} } } shuffle keys %group;
 }
 
+sub retrieve_or_insert_bucket {
+    my $self = shift;
+    my $args = $self->args(
+        'name'  => 'Str',
+    );
+
+    my $bucket;
+    {
+        my $txn = $self->txn_scope;
+
+        $bucket = $self->select_bucket(
+            name => $args->{name},
+        );
+
+        if ( !$bucket ) {
+            $self->query(
+                q{INSERT INTO buckets (name, enabled, deleted) VALUES (?,?,?)},
+                $args->{name},
+                1,
+                0
+            );
+            my $bucket_id = $self->last_insert_id();
+            $bucket = {
+                id => $bucket_id,
+                name => $args->{name},
+                enabled => 1,
+                deleted => 0,
+            };
+        }
+
+        $txn->commit;
+    }
+    $bucket;
+}
+
 sub insert_object {
     my $self = shift;
     my $args = $self->args(
         'rid'  => 'Natural',
         'gid'  => 'Natural',
-        'bucket_name'  => 'Str',
+        'bucket_id'  => 'Natural',
         'filename' => 'Str',
     );
-
-    {
-        my $txn = $self->txn_scope;
-
-        my $bucket = $self->select_bucket(
-            name => $args->{bucket_name},
-        );
-        if ( $bucket ) {
-            die "bucket:". $args->{bucket_name} ." is disabled" if !$bucket->{enabled};
-            die "bucket:". $args->{bucket_name} ." is deleted" if $bucket->{deleted};
-        }
-
-        my $bucket_id;
-        if (!$bucket) {
-            $self->query(
-                q{INSERT INTO buckets (name, enabled, deleted) VALUES (?,?,?)},
-                $args->{bucket_name},
-                1,
-                0
-            );
-            $bucket_id = $self->last_insert_id();
-        }
-        else {
-            $bucket_id = $bucket->{id};
-        }
-        
-        $self->query(
-            q{INSERT INTO objects (fid, bucket_id, rid, gid) VALUES (?,?,?,?)},
-            filename_id($args->{filename}),
-            $bucket_id,
-            $args->{rid},
-            $args->{gid},
-        );
-        $txn->commit;
-    };
+    
+    $self->query(
+        q{INSERT INTO objects (fid, bucket_id, rid, gid) VALUES (?,?,?,?)},
+        filename_id($args->{filename}),
+        $args->{bucket_id},
+        $args->{rid},
+        $args->{gid},
+    );
 
     1;
 }

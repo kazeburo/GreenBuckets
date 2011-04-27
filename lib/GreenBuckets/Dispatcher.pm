@@ -45,7 +45,6 @@ sub put_object {
     my ($self, $c) = @_;
     my $bucket_name = $c->args->{bucket};
     my ($filename) = @{$c->args->{splat}};
-
     my $content = $c->req->raw_body;
 
     $self->model->put_object($bucket_name, $filename, \$content);
@@ -62,7 +61,7 @@ sub delete_object {
     my $bucket_name = $c->args->{bucket};
     my ($filename) = @{$c->args->{splat}};
 
-    $self->model->put_object($bucket_name, $filename);
+    $self->model->delete_object($bucket_name, $filename);
 }
 
 sub manip_bucket {

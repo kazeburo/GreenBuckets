@@ -14,6 +14,7 @@ use Class::Load qw/load_class/;
 use List::Util qw/shuffle/;
 use Try::Tiny;
 use Log::Minimal;
+use Data::MessagePack;
 use Mouse;
 
 has 'config' => (
@@ -92,7 +93,7 @@ sub get_object {
 
     my $r_res = GreenBuckets::Dispatcher::Response->new(200);
     for my $header ( qw/server content_type last_modified/ ) {
-        $r_res->header($header) = $res->header($header);
+        $r_res->header($header, $res->header($header));
     }
     $r_res->body($res->body);
     $r_res;
@@ -121,13 +122,13 @@ sub put_object {
 
     my $sc = start_scope_container();
     my $master = $self->master;
-    my $bucket = $master->select_bucket(
+    my $bucket = $master->retrieve_or_insert_bucket(
         name => $bucket_name
     );
     http_croak(403) if ! $bucket->{enabled};
     http_croak(503) if $bucket->{deleted}; #XXX 
 
-    if ( $bucket && $master->retrieve_object( bucket_id => $bucket->{id}, filename => $filename ) ) {
+    if ( $master->retrieve_object( bucket_id => $bucket->{id}, filename => $filename ) ) {
         http_croak(409, "duplicated upload %s/%s", $bucket_name, $filename);
     }
 
@@ -153,23 +154,23 @@ sub put_object {
             last;
         }
 
-        infof "Failed upload %s/%s to group_id:%s", $bucket, $filename, $f_node->{gid};
+        infof "Failed upload %s/%s to group_id:%s", $bucket_name, $filename, $f_node->{gid};
         $self->enqueue('delete_files', $f_node->{uri});
 
         --$try;
         if ( $try == 0 ) {
-            warnf "try time exceed for upload %s/%s", $bucket, $filename;
+            warnf "try time exceed for upload %s/%s", $bucket_name, $filename;
             last;
         }
     }
 
-    http_croak(500,"Upload failed %s/%s", $bucket, $filename) if !$gid;
+    http_croak(500,"Upload failed %s/%s", $bucket_name, $filename) if !$gid;
 
     my $sc2 = start_scope_container();
     $master->insert_object( 
         gid => $gid,
         rid => $rid,
-        bucket_name => $bucket_name,
+        bucket_id => $bucket->{id},
         filename => $filename
     );
 

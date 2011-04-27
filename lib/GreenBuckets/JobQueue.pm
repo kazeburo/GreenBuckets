@@ -7,6 +7,9 @@ use Carp qw/croak/;
 use File::Temp qw();
 use Log::Minimal;
 use Scope::Container;
+use IO::Socket::INET;
+use Parallel::Prefork;
+use Parallel::Scoreboard;
 use GreenBuckets::Model;
 use Mouse;
 
@@ -31,12 +34,12 @@ has 'scoreboard' => (
     lazy_build => 1,
 );
 
-sub build_model {
+sub _build_model {
     my $self = shift;
-    GreenBuckets::Model->new($self->config);
+    GreenBuckets::Model->new( config => $self->config );
 }
 
-sub build_scoreboard {
+sub _build_scoreboard {
     my $self = shift;
     Parallel::Scoreboard->new(
         base_dir => File::Temp::tempdir(CLEANUP => 1)
@@ -131,6 +134,7 @@ IdleWorkers: $idle
 EOF
         print $client $raw_stats;
     }
+    exit(0);
 }
 
 __PACKAGE__->meta->make_immutable();
