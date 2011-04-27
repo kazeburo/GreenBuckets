@@ -38,7 +38,6 @@ sub get_object {
     my ($self, $c) = @_;
     my $bucket_name = $c->args->{bucket};
     my ($filename) = @{$c->args->{splat}};
-    debugf "request: $bucket_name / $filename";
     $self->model->get_object($bucket_name, $filename);
 }
 
@@ -171,8 +170,8 @@ sub run {
     $app = builder {
         if ( $ENV{PLACK_ENV} eq "development" ) {
             enable "StackTrace";
-            enable "AccessLog", logger => sub { print STDERR @_ };
         }
+        enable 'HTTPExceptions';
         enable 'Log::Minimal', autodump => 1;
         if ( @$front_proxy ) {
             enable c_match_if c_addr(@$front_proxy), 'ReverseProxy';

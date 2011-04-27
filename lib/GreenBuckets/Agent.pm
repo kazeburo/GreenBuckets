@@ -35,9 +35,9 @@ sub furl {
 
 sub get {
     my $self = shift;
-    my @url = @_;
+    my $urls = shift;
     my $res;
-    for my $url ( @url ) {
+    for my $url ( @$urls ) {
         $res = $self->furl->get($url);
         infof("failed get: %s / %s", $url, $res->status_line) if ! $res->is_success;
         last if $res->is_success; 

@@ -2,10 +2,13 @@ package GreenBuckets::Util;
 
 use strict;
 use warnings;
+use 5.10.0;
 use parent qw/Exporter/;
 use Encode;
 use Digest::MurmurHash qw/murmur_hash/;
 use Digest::SHA qw/sha224_hex/;
+use GreenBuckets;
+use Data::Validator;
 
 our @EXPORT_OK = qw/filename_id gen_rid object_path/;
 
@@ -16,20 +19,24 @@ sub filename_id($) {
 }
 
 sub gen_rid() {
-    int(rand(0xff));
+    int(rand(0xfe)) + 1;
 }
 
-sub object_path($$$) {
-    my ($bucket,$filename, $rid) = @_;
-    $bucket = Encode::encode_utf8($bucket) if Encode::is_utf8($bucket);
-    $filename = Encode::encode_utf8($filename) if Encode::is_utf8($filename);
-    $rid = Encode::encode_utf8($rid) if Encode::is_utf8($rid);
+sub object_path {
+    state $rule = Data::Validator->new(
+        bucket_id => 'Natural',
+        filename => 'Str',
+        rid      => 'Natural'
+    );
+    my $args = $rule->validate(@_);
+    my $filename = Encode::is_utf8($args->{filename}) 
+        ? Encode::encode_utf8($args->{filename}) : $args->{filename};
 
     my $suffix;
     if ( $filename =~ m!\.([a-zA-Z0-9]+)$! ) {
         $suffix = $1;
     }
-    my $hash = sha224_hex($bucket . '/' . $rid . '/' . $filename);
+    my $hash = sha224_hex($args->{bucket_id} . '/' . $args->{rid} . '/' . $filename);
 
     my $path = sprintf("%s/%s/%s/%s", 
                        substr($hash, 0, 1),

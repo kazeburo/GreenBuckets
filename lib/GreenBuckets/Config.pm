@@ -91,6 +91,12 @@ has 'jobqueue_max_worker' => (
     default => 5,
 );
 
+has 'agent_class' => (
+    is => 'ro',
+    isa => 'Str',
+    default => 'GreenBuckets::Agent',
+);
+
 __PACKAGE__->meta->make_immutable();
 1;
 

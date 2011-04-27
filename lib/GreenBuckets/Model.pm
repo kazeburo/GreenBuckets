@@ -9,9 +9,10 @@ use Scope::Container::DBI;
 use GreenBuckets::Util qw/filename_id gen_rid object_path/;
 use GreenBuckets::Schema;
 use GreenBuckets::Dispatcher::Response;
+use GreenBuckets::Exception;
+use Class::Load qw/load_class/;
 use List::Util qw/shuffle/;
 use Try::Tiny;
-use HTTP::Exception;
 use Log::Minimal;
 use Mouse;
 
@@ -40,14 +41,16 @@ sub master {
 sub agent {
     my $self = shift;
     return $self->{_agent} if $self->{_agent};
+    my $agent_class = $self->config->agent_class;
+    load_class($agent_class) or croak $!;
     if ( $self->config->dav_user ) {
-        $self->{_agent} = GreenBuckets::Agent->new(
+        $self->{_agent} = $agent_class->new(
             user =>  $self->config->dav_user,
             passwd => $self->config->dav_passwd,
         );
     }
     else {
-        $self->{_agent} = GreenBuckets::Agent->new();
+        $self->{_agent} = $agent_class->new();
     }
     $self->{_agent};
 }
@@ -68,9 +71,9 @@ sub get_object {
     my $bucket = $slave->select_bucket(
         name => $bucket_name
     );
-    HTTP::Exception->throw(404) unless $bucket; # 404
-    HTTP::Exception->throw(403) if ! $bucket->{enabled}; # 403
-    HTTP::Exception->throw(404) if $bucket->{deleted}; # 404;
+    http_croak(404) unless $bucket; # 404
+    http_croak(403) if ! $bucket->{enabled}; # 403
+    http_croak(404) if $bucket->{deleted}; # 404;
 
     my @uri = $slave->retrieve_object_nodes(
         bucket_id => $bucket->{id},
@@ -78,18 +81,14 @@ sub get_object {
     );
 
     undef $sc;
-
+    http_croak(404) if !@uri;
+    
     my @r_uri = grep { $_->{can_read} } @uri;
-    if ( !@r_uri ) {
-        warnf "all storage cannot read %s", \@uri;
-        HTTP::Exception->throw(500);
-    }
+    http_croak(500, "all storage cannot read %s", \@uri) if ! @r_uri;
 
     my $res = $self->agent->get(\@r_uri);
-    if ( !$res->is_success ) {
-        warnf "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line;
-        HTTP::Exception->throw(500);
-    }
+    http_croak(500, "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line)
+        if !$res->is_success; 
 
     my $r_res = GreenBuckets::Dispatcher::Response->new(200);
     for my $header ( qw/server content_type last_modified/ ) {
@@ -109,9 +108,9 @@ sub get_bucket {
     my $bucket = $slave->select_bucket(
         name => $bucket_name
     );
-    HTTP::Exception->throw(404) unless $bucket; # 404
-    HTTP::Exception->throw(403) if ! $bucket->{enabled}; # 403
-    HTTP::Exception->throw(503) if $bucket->{deleted}; # 404;
+    http_croak(404) unless $bucket; # 404
+    http_croak(403) if ! $bucket->{enabled}; # 403
+    http_croak(503) if $bucket->{deleted}; # 404;
 
     return $self->res_ok;
 }
@@ -125,20 +124,20 @@ sub put_object {
     my $bucket = $master->select_bucket(
         name => $bucket_name
     );
-    HTTP::Exception->throw(403) if ! $bucket->{enabled};
-    HTTP::Exception->throw(503) if $bucket->{deleted}; #XXX 
+    http_croak(403) if ! $bucket->{enabled};
+    http_croak(503) if $bucket->{deleted}; #XXX 
 
-    if ( $bucket && $self->retrieve_object( bucket_id => $bucket->{id}, filename => $filename ) ) {
-        warnf "duplicated upload %s/%s", $bucket, $filename;
-        HTTP::Exception->throw(409);
+    if ( $bucket && $master->retrieve_object( bucket_id => $bucket->{id}, filename => $filename ) ) {
+        http_croak(409, "duplicated upload %s/%s", $bucket_name, $filename);
     }
 
     my @f_nodes = $master->retrieve_fresh_nodes(
-        bucket_name => $bucket_name, 
+        bucket_id => $bucket->{id}, 
         filename => $filename,
         having => $self->config->{replica}
     );
     undef $sc;
+    http_croak(500, "cannot find fresh_nodes") if !@f_nodes;
 
     my $try=3;
     my $gid;
@@ -164,10 +163,7 @@ sub put_object {
         }
     }
 
-    if ( !$gid ) {
-        warnf "Upload failed %s/%s", $bucket, $filename;
-        return HTTP::Exception->throw(500);
-    }
+    http_croak(500,"Upload failed %s/%s", $bucket, $filename) if !$gid;
 
     my $sc2 = start_scope_container();
     $master->insert_object( 
@@ -189,9 +185,9 @@ sub delete_object {
     my $bucket = $master->select_bucket(
         name => $bucket_name
     );
-    HTTP::Exception->throw(404) unless $bucket; # 404
-    HTTP::Exception->throw(403) if ! $bucket->{enabled}; # 403
-    HTTP::Exception->throw(404) if $bucket->{deleted}; # 404;
+    http_croak(404) unless $bucket; # 404
+    http_croak(403) if ! $bucket->{enabled}; # 403
+    http_croak(404) if $bucket->{deleted}; # 404;
 
     my @uri = $master->retrieve_object_nodes(
         bucket_id => $bucket->{id},

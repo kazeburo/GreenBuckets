@@ -5,10 +5,10 @@ use warnings;
 use utf8;
 use 5.10.0;
 use parent qw/DBIx::Sunny::Schema/;
-use HTTP::Exception;
 use List::Util qw/shuffle/;
 use GreenBuckets;
 use GreenBuckets::Util qw/filename_id gen_rid object_path/;
+use Log::Minimal;
 
 __PACKAGE__->select_row(
     'select_bucket',
@@ -73,7 +73,6 @@ sub retrieve_object_nodes {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
-        'bucket_name' => 'Str',
         'filename' => 'Str',
     );
 
@@ -82,11 +81,18 @@ sub retrieve_object_nodes {
         bucket_id => $args->{bucket_id},
         fid => $fid
     );
-
-    return unless @$nodes;
+    if ( ! @$nodes ) {
+        debugf "not found bucket_id:%s, filename:%s, fid:%s",
+            $args->{bucket_id}, $args->{filename}, $fid;
+        return;
+    }
 
     my $rid = $nodes->[0]->{rid};
-    my $object_path = object_path($args->{bucket_name}, $args->{filename}, $rid);
+    my $object_path = object_path(
+        bucket_id => $args->{bucket_id}, 
+        filename => $args->{filename}, 
+        rid => $rid
+    );
     my @uris =  sort {
         filename_id($a->{uri}) <=> filename_id($b->{uri})
     } map {
@@ -100,7 +106,7 @@ sub retrieve_object_nodes {
 sub retrieve_fresh_nodes {
     my $self = shift;
     my $args = $self->args(
-        'bucket_name'  => 'Str',
+        'bucket_id'  => 'Natural',
         'filename' => 'Str',
         'having' => 'Int',
     );
@@ -109,7 +115,11 @@ sub retrieve_fresh_nodes {
 
     my %group;
     my $rid = gen_rid();
-    my $object_path = object_path($args->{bucket_name}, $args->{filename}, $rid);
+    my $object_path = object_path(
+        bucket_id => $args->{bucket_id}, 
+        filename  => $args->{filename},
+        rid => $rid
+    );
     for my $node ( @$nodes ) {
         $group{$node->{gid}} ||= [];
         my $node_name = $node->{node};

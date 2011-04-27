@@ -55,12 +55,12 @@ is_deeply $schema->retrieve_object( bucket_id => 1, filename => 3 ),
 is_deeply $schema->retrieve_object( bucket_id => 2, filename => 5 ),
     { fid => filename_id(5), bucket_id =>2, rid => 254, gid => 3 };
 
-my @nodes = $schema->retrieve_object_nodes( bucket_id => 1, bucket_name => 'foo',  filename => 3 );
+my @nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 3 );
 is( scalar @nodes, 3);
 is( $nodes[0]->{gid}, 2);
 ok( $nodes[0]->{uri} );
 
-my @f_nodes = $schema->retrieve_fresh_nodes( having => 3, bucket_name => 'foo',  filename => 3 );
+my @f_nodes = $schema->retrieve_fresh_nodes( having => 3, bucket_id => 1, filename => 3 );
 is( scalar @f_nodes, 2 );
 ok( $nodes[0]->{gid});
 ok( $nodes[0]->{rid});

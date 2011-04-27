@@ -17,7 +17,7 @@ sub setup {
 
     $mysqld = Test::mysqld->new(
         my_cnf => {
-            'bind-address' => '127.0.0.1', # no TCP socket
+            'skip-networking' => '1', # no TCP socket
         }
     );
     if ( !$mysqld ) {
