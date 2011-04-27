@@ -7,7 +7,7 @@ use GreenBuckets;
 use Data::Section::Simple;
 
 sub run {
-    my ($self, $opt, $args) = @_;
+    my ($self, $args) = @_;
 
     my $reader = Data::Section::Simple->new('GreenBuckets');
     my $all = $reader->get_data_section;

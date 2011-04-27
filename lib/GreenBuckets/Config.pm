@@ -6,7 +6,10 @@ use Mouse;
 sub load {
     my $class = shift;
     my $fname = shift;
-    my $config = do $fname or die "Cannot load configuration file: $fname";
+    my $config = eval {
+        do $fname or die "Cannot load configuration file: $fname";
+    };
+    die $@ if $@;
     __PACKAGE__->new($config);
 }
 
@@ -46,13 +49,13 @@ has 'dav_passwd' => (
     default => '',
 );
 
-has 'allow_from' => (
+has 'front_proxy' => (
     is => 'ro',
     isa => 'ArrayRef[Str]',
     default => sub { [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!] },
 );
 
-has 'front_proxy' => (
+has 'dispatcher_status_access' => (
     is => 'ro',
     isa => 'ArrayRef[Str]',
     default => sub { [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!] },
@@ -76,13 +79,13 @@ has 'replica' => (
     default => 3,
 );
 
-has 'dispatcher_worker' => (
+has 'dispatcher_max_worker' => (
     is => 'ro',
     isa => 'Natural',
     default => 20,
 );
 
-has 'jobqueue_worker' => (
+has 'jobqueue_max_worker' => (
     is => 'ro',
     isa => 'Natural',
     default => 5,

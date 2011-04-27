@@ -3,32 +3,49 @@ package GreenBuckets::Dispatcher;
 use strict;
 use warnings;
 use utf8;
+use Carp qw/croak/;
+use Scalar::Util qw/blessed/;
 use Plack::Builder;
+use Plack::Builder::Conditionals -prefix => 'c';
+use Plack::Loader;
+use Router::Simple;
+use File::Temp;
 use GreenBuckets::Dispatcher::Request;
 use GreenBuckets::Dispatcher::Response;
 use GreenBuckets::Dispatcher::Connection;
 use GreenBuckets::Model;
-use Class::Accessor::Lite (
-    new => 1,
+use Log::Minimal;
+use Mouse;
+
+has 'config' => (
+    is => 'ro',
+    isa => 'GreenBuckets::Config',
+    required => 1,
 );
 
-sub model {
+has 'model' => (
+    is => 'ro',
+    isa => 'GreenBuckets::Model',
+    lazy_build => 1,
+);
+
+sub _build_model {
     my $self = shift;
-    $self->{_model} ||= GreenBuckets::Model->new(
-        config => ... 
-    );
-    $self->{_model};
+    GreenBuckets::Model->new( config => $self->config );
 }
 
 sub get_object {
     my ($self, $c) = @_;
-    my ($bucket_name,$filename) = @{$c->args->{splat}};
+    my $bucket_name = $c->args->{bucket};
+    my ($filename) = @{$c->args->{splat}};
+    debugf "request: $bucket_name / $filename";
     $self->model->get_object($bucket_name, $filename);
 }
 
 sub put_object {
-    my ($sef, $c) = @_;
-    my ($bucket_name, $filename) = @{$c->args->{splat}};
+    my ($self, $c) = @_;
+    my $bucket_name = $c->args->{bucket};
+    my ($filename) = @{$c->args->{splat}};
 
     my $content = $c->req->raw_body;
 
@@ -36,20 +53,21 @@ sub put_object {
 }
 
 sub get_bucket {
-    my ($sef, $c) = @_;
+    my ($self, $c) = @_;
     my $bucket_name = $c->args->{bucket};
     $self->model->get_bucket($bucket_name);
 }
 
 sub delete_object {
-    my ($sef, $c) = @_;
-    my ($bucket_name, $filename) = @{$c->args->{splat}};
+    my ($self, $c) = @_;
+    my $bucket_name = $c->args->{bucket};
+    my ($filename) = @{$c->args->{splat}};
 
     $self->model->put_object($bucket_name, $filename);
 }
 
 sub manip_bucket {
-    my ($sef, $c) = @_;
+    my ($self, $c) = @_;
     my ($bucket_name) = @{$c->args->{splat}};
     return $c->res->server_error;
 }
@@ -62,35 +80,35 @@ sub build_app {
 
     # get
     $router->connect(
-        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/*',
+        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-]+}/*',
         { action => 'get_object' },
         { method => ['GET','HEAD'] }
     );
 
     # get dir
     $router->connect(
-        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/',
+        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-]+}/',
         { action => 'get_bucket' },
         { method => ['GET','HEAD'] }
     );
 
     # put
     $router->connect(
-        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/*',
+        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-]+}/*',
         { action => 'put_object' },
         { method => ['PUT'] }
     );
 
     # delete
     $router->connect(
-        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/*',
+        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-]+}/*',
         { action => 'delete_object' },
         { method => ['DELETE'] }
     );
 
     # post manip
     $router->connect(
-        '/([a-zA-Z0-9][a-zA-Z0-9_\-]+)/',
+        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-]+}/',
         { action => 'manip_bucket' },
         { method => ['POST'] }
     );
@@ -112,15 +130,15 @@ sub build_app {
         if ( my $p = $router->match($env) ) {
             my $action = delete $p->{action};
             my $code = $self->can($action);
-            Carp::croak('uri match but no action found') unless $code;
+            croak('uri match but no action found') unless $code;
 
             $c->args($p);
 
             my $res = $code->($self, $c );
-            Carp::croak( "undefined response") if ! defined $res;
+            croak( "undefined response") if ! defined $res;
 
             my $res_t = ref($res) || '';
-            if ( Scalar::Util::blessed $res && $res->isa('Plack::Response') ) {
+            if ( blessed $res && $res->isa('Plack::Response') ) {
                 $psgi_res = $res->finalize;
             }
             elsif ( $res_t eq 'ARRAY' ) {
@@ -131,7 +149,7 @@ sub build_app {
                 $psgi_res = $s_res->finalize;
             }
             else {
-                Carp::croak("unknown response type: $res, $res_t");
+                croak("unknown response type: $res, $res_t");
             }
         }
         else {
@@ -141,6 +159,49 @@ sub build_app {
         
         $psgi_res;
     };
+}
+
+sub run {
+    my $self = shift;
+
+    my $dispatcher_status_access = $self->config->dispatcher_status_access;
+    my $front_proxy = $self->config->front_proxy;
+
+    my $app = $self->build_app;
+    $app = builder {
+        if ( $ENV{PLACK_ENV} eq "development" ) {
+            enable "StackTrace";
+            enable "AccessLog", logger => sub { print STDERR @_ };
+        }
+        enable 'Log::Minimal', autodump => 1;
+        if ( @$front_proxy ) {
+            enable c_match_if c_addr(@$front_proxy), 'ReverseProxy';
+        }
+        enable "ServerStatus::Lite",
+          path => '/___server-status',
+          allow => $dispatcher_status_access,
+          scoreboard => File::Temp::tempdir(CLEANUP => 1);
+        enable c_match_if c_method('!',qw/GET HEAD/), "Auth::Basic", authenticator => $self->authen_cb;
+        enable 'Scope::Container';
+        $app;
+    };
+
+    my $loader = Plack::Loader->load(
+        'Starlet',
+        port => $self->config->dispatcher_port,
+        host => 0,
+        max_workers => $self->config->dispatcher_max_worker,
+    );
+
+    $loader->run($app);
+}
+
+sub authen_cb {
+    my $self = shift;
+    sub {
+        my ($user,$pass) = @_;
+        return $user eq $self->config->user && $pass eq $self->config->passwd;
+    }
 }
 
 1;

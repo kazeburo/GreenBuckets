@@ -50,7 +50,7 @@ sub run {
     my $status_server_pid = $self->status_server;
 
     my $pm = Parallel::Prefork->new({
-        max_workers  => $self->config->jobqueue_worker,
+        max_workers  => $self->config->jobqueue_max_worker,
         trap_signals => {
             TERM => 'TERM',
             HUP  => 'TERM',

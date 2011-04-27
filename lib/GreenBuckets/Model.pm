@@ -26,14 +26,14 @@ __PACKAGE__->meta->make_immutable();
 sub slave {
     my $self = shift;
     local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
-    my $dbh = Scope::Container::DBI->new($self->config->slave);
+    my $dbh = Scope::Container::DBI->connect(@{$self->config->slave});
     GreenBuckets::Schema->new(dbh=>$dbh, readonly=>1);
 }
 
 sub master {
     my $self = shift;
     local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
-    my $dbh = Scope::Container::DBI->new($self->config->master);
+    my $dbh = Scope::Container::DBI->connect(@{$self->config->master});
     GreenBuckets::Schema->new(dbh=>$dbh);
 }
 
