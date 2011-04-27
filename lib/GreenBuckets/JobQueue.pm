@@ -11,6 +11,8 @@ use IO::Socket::INET;
 use Parallel::Prefork;
 use Parallel::Scoreboard;
 use GreenBuckets::Model;
+use Log::Minimal;
+use Term::ANSIColor qw//;
 use Mouse;
 
 our $MAX_JOB = 100;
@@ -46,8 +48,46 @@ sub _build_scoreboard {
     );
 }
 
+our $DEFAULT_COLOR = {
+    info  => { text => 'green', },
+    debug => {
+        text       => 'red',
+        background => 'white',
+    },
+    'warn' => {
+        text       => 'black',
+        background => 'yellow',
+    },
+    'critical' => {
+        text       => 'black',
+        background => 'red'
+    }
+};
+
+sub build_logger {
+    my ($self) = @_;
+    return sub {
+        my ( $time, $type, $message, $trace) = @_;
+        my $raw_message = $message;
+        if ( $ENV{PLACK_ENV} && $ENV{PLACK_ENV} eq 'development' ) {
+             $message = Term::ANSIColor::color($DEFAULT_COLOR->{lc($type)}->{text}) 
+                 . $message . Term::ANSIColor::color("reset")
+                 if $DEFAULT_COLOR->{lc($type)}->{text};
+             $message = Term::ANSIColor::color("on_".$DEFAULT_COLOR->{lc($type)}->{background}) 
+                 . $message . Term::ANSIColor::color("reset")
+                 if $DEFAULT_COLOR->{lc($type)}->{background};
+        }
+        print STDERR sprintf("%s [%s] [%s] %s at %s\n", $time, $$, $type, $message, $trace);
+    };
+}
+
+
 sub run {
     my $self = shift;
+
+    local $ENV{$Log::Minimal::ENV_DEBUG} = ($ENV{PLACK_ENV} && $ENV{PLACK_ENV} eq 'development') ? 1 : 0;
+    local $Log::Minimal::AUTODUMP = 1;
+    local $Log::Minimal::PRINT = $self->build_logger();
 
     my $scoreboard = $self->scoreboard;
     my $status_server_pid = $self->status_server;
@@ -63,6 +103,7 @@ sub run {
 
     while ( $pm->signal_received ne 'TERM' ) {
         $pm->start and next;
+        debugf "process start";
         $0 = "$0 (jobqueue worker)";       
         $scoreboard->update('.');
 
@@ -82,7 +123,7 @@ sub run {
             sleep $SLEEP;
         }
         
-        debugf "[%s] finished", $$;
+        debugf "process finished";
     }
 
     kill 'TERM', $status_server_pid;

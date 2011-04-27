@@ -205,7 +205,10 @@ sub delete_object {
     # remove file
     my @r_uri = map { $_->{uri} }
         grep { $_->{can_read} && $_->{is_fresh} } @uri;
-    $self->enqueue('delete_files', \@r_uri);
+    if ( @r_uri ) {
+        debugf "enqueue:delete_file args:%s",\@r_uri;
+        $self->enqueue('delete_files', \@r_uri);
+    }
 
     return $self->res_ok;
 }
@@ -231,7 +234,7 @@ sub dequeue {
     }
 
     try {
-        $subref->($self, $queue->{args});
+        $subref->($self, $args);
     } catch {
         croak "func:$func failed: ". $_;
     };

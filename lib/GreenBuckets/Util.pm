@@ -18,7 +18,12 @@ sub filename_id($) {
     murmur_hash($filename);   
 }
 
+my $PID=$$;
 sub gen_rid() {
+    if ( $PID != $$ ) {
+        $PID=$$;
+        srand();
+    }
     int(rand(0xfe)) + 1;
 }
 
