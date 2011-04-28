@@ -95,39 +95,42 @@ sub run {
     my $pm = Parallel::Prefork->new({
         max_workers  => $self->config->jobqueue_max_worker,
         trap_signals => {
-            TERM => 'TERM',
-            HUP  => 'TERM',
-            USR1 => undef,
+            'TERM' => 'TERM',
+            'HUP'  => 'TERM',
+            'INT'  => 'TERM',
+            'USR1' => undef,
         }
     });
 
-    while ( $pm->signal_received ne 'TERM' ) {
-        $pm->start and next;
-        debugf "process start";
-        $0 = "$0 (jobqueue worker)";       
-        $scoreboard->update('.');
-
-        my $stop;
-        my $i = 0;
-        local $SIG{TERM} = sub { $stop++ };
-
-        while ( !$stop ) {
-            $scoreboard->update('A');
-            my $sc = start_scope_container;
-            my $model = $self->model;
-            my $result = $model->dequeue;
-            undef $sc;
+    while ( $pm->signal_received !~ m!^(?:TERM|INT)$! ) {
+        $pm->start(sub{
+            debugf "process start";
+            $0 = "$0 (jobqueue worker)";       
             $scoreboard->update('.');
-            $i++ if $result;
-            last if $i > $MAX_JOB;
-            sleep $SLEEP;
-        }
-        
-        debugf "process finished";
-    }
 
+            local $ENV{JOBQ_STOP};
+            my $i = 0;
+            local $SIG{TERM} = sub { $ENV{JOBQ_STOP} = 1 };
+            local $SIG{INT} = sub { $ENV{JOBQ_STOP} = 1 };
+
+            while ( !$ENV{JOBQ_STOP} ) {
+                $scoreboard->update('A');
+                my $result = $self->model->dequeue;
+                $scoreboard->update('.');
+                $i++ if $result;
+                last if $i > $MAX_JOB;
+                sleep $SLEEP unless $ENV{JOBQ_STOP};
+            }
+        
+            debugf "process finished";
+        });
+    }
+    $pm->wait_all_children;
+
+    debugf "kill status_server pid:%s", $status_server_pid;
     kill 'TERM', $status_server_pid;
     waitpid( $status_server_pid, 0 );
+    debugf "all finished";
 }
 
 
@@ -149,6 +152,7 @@ sub status_server {
 
     return $pid if $pid;
 
+    debugf "start status_server port:%s", $self->config->jobqueue_worker_port;
     # status worker
     $0 = "$0 (jobqueue status worker)";
     $SIG{TERM} = sub { exit(0) };

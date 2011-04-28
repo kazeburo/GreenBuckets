@@ -17,6 +17,8 @@ use Log::Minimal;
 use Data::MessagePack;
 use Mouse;
 
+our $MAX_RETRY_JOB = 3600;
+
 has 'config' => (
     is => 'ro',
     isa => 'GreenBuckets::Config',
@@ -84,7 +86,7 @@ sub get_object {
     undef $sc;
     http_croak(404) if !@uri;
     
-    my @r_uri = grep { $_->{can_read} } @uri;
+    my @r_uri = map { $_->{uri} } grep { $_->{can_read} } @uri;
     http_croak(500, "all storage cannot read %s", \@uri) if ! @r_uri;
 
     my $res = $self->agent->get(\@r_uri);
@@ -135,46 +137,118 @@ sub put_object {
     my @f_nodes = $master->retrieve_fresh_nodes(
         bucket_id => $bucket->{id}, 
         filename => $filename,
-        having => $self->config->{replica}
+        having => $self->config->replica
     );
+    undef $master;
     undef $sc;
     http_croak(500, "cannot find fresh_nodes") if !@f_nodes;
 
-    my $try=3;
     my $gid;
     my $rid;
     for my $f_node ( @f_nodes ) {
-        
-        my $result = $self->agent->put($f_node->{uri}, $content_ref);
+        my $first_node = $f_node->{uri}->[0];
+        my $result = $self->agent->put($first_node, $content_ref);
 
         if ( $result ) {
-            infof "%s/%s was uploaded to group_id:%s", $bucket, $filename, $f_node->{gid};
+            infof "%s/%s was uploaded to gid:%s first_node:%s", 
+                $bucket_name, $filename, $f_node->{gid}, $first_node;
             $gid = $f_node->{gid};
             $rid = $f_node->{rid};
             last;
         }
 
-        infof "Failed upload %s/%s to group_id:%s", $bucket_name, $filename, $f_node->{gid};
-        $self->enqueue('delete_files', $f_node->{uri});
+        infof "Failed upload %s/%s to group_id:%s first_node:%s",
+            $bucket_name, $filename, $f_node->{gid}, $first_node;
+        $self->enqueue('delete_files', $first_node );
 
-        --$try;
-        if ( $try == 0 ) {
-            warnf "try time exceed for upload %s/%s", $bucket_name, $filename;
-            last;
-        }
     }
 
     http_croak(500,"Upload failed %s/%s", $bucket_name, $filename) if !$gid;
 
-    my $sc2 = start_scope_container();
-    $master->insert_object( 
+    $sc = start_scope_container();
+    $self->master->insert_object( 
         gid => $gid,
         rid => $rid,
         bucket_id => $bucket->{id},
         filename => $filename
     );
 
+    $self->enqueue('replicate_object',{
+        gid => $gid,
+        bucket_id => $bucket->{id},
+        filename => $filename
+    });
+
     return $self->res_ok;
+}
+
+sub jobq_replicate_object {
+    my $self = shift;
+    my $job = shift;
+    my $args = $job->args;
+
+    my @uri = $self->master->retrieve_object_nodes(
+        bucket_id => $args->{bucket_id},
+        filename => $args->{filename},
+    );
+    my @r_uri = map { $_->{uri} } @uri;
+    my $first_node = shift @r_uri;
+
+    my $res = $self->agent->get($first_node);
+    die "cannot get $first_node , status_line:".$res->status_line if !$res->is_success;
+    my $body = $res->content;
+
+    debugf 'replicate %s to %s', $first_node, \@r_uri;
+    my $result = $self->agent->put(\@r_uri, \$body);
+    if ( $result ) {
+        infof "success replicate object gid:%s %s to %s",
+            $args->{gid}, $first_node, \@r_uri;
+        $job->done(1);
+        return;
+    }
+
+    infof "failed replicate object gid:%s %s to %s .. retry another fresh_nodes",
+            $args->{gid}, $first_node, \@r_uri;
+ 
+    my @f_nodes = $self->master->retrieve_fresh_nodes(
+        bucket_id => $args->{bucket_id}, 
+        filename => $args->{filename},
+        having => $self->config->replica
+    );
+    die "cannot find fresh_nodes" if !@f_nodes;
+
+    my $gid;
+    my $rid;
+    for my $f_node ( @f_nodes ) {
+        next if $args->{gid} == $f_node->{gid}; # skip
+        my $result = $self->agent->put( $f_node->{uri} );
+        if ( $result ) {
+            infof "%s was reuploaded to gid:%s %s", 
+                $first_node, $f_node->{gid}, $f_node->{uri};
+            $gid = $f_node->{gid};
+            $rid = $f_node->{rid};
+            last;
+        }
+        infof "Failed replicate %s to gid:%s %s",
+            $first_node, $f_node->{gid}, $f_node->{uri};
+        $self->enqueue('delete_files', $f_node->{uri} );
+    }
+
+    die sprintf("replicate failed %s", $first_node) if !$gid;
+    
+    infof "success reupload %s to gid:%s", 
+        $first_node, $gid;
+
+    my $sc = start_scope_container();
+    $self->master->update_object( 
+        gid => $gid,
+        rid => $rid,
+        bucket_id => $args->{bucket_id},
+        filename => $args->{filename}
+    );
+    $self->enqueue('delete_files', $first_node );
+
+    $job->done(1);
 }
 
 sub delete_object {
@@ -215,29 +289,55 @@ sub delete_object {
 
 sub jobq_delete_files {
     my $self = shift;
-    my $r_uri = shift;
-    $self->agent->delete($r_uri);
+    my $job = shift;
+    $self->agent->delete($job->args);
+    $job->done(1);
 }
 
 sub dequeue {
     my $self = shift;
+    my $sc = start_scope_container;
     my $queue = $self->master->retrieve_queue;
+    undef $sc;
     return unless $queue;
+
     my $args = Data::MessagePack->unpack($queue->{args});
     my $func = $queue->{func};
+    my $try = $queue->{try};
+    $try++;
 
-    debugf "execute func:%s with args:%s", $func, $args;
-    my $subref = $self->can("jobq_". $func);
-
-    if ( !$subref ) {
-        croak "func:$func not found";
-    }
+    my $job;
 
     try {
-        $subref->($self, $args);
+        debugf "execute func:%s try:%d args:%s", $func, $try, $args;
+        my $subref = $self->can("jobq_". $func);
+
+        if ( !$subref ) {
+            croak "func:$func is not found";
+        }
+        $job = GreenBuckets::Model::Job->new(
+            args => $args,
+        );
+        $subref->($self, $job);
+        debugf "success job func:%s, try:%d, args:%s", $func, $try, $args;
     } catch {
-        croak "func:$func failed: ". $_;
+        warnf "func:%s try:%d failed:%s ... retrying", $func, $try, $_;
+    } finally {
+        if ( !$job || !$job->done ) {
+            sleep 1 unless $ENV{JOBQ_STOP}; #XXX
+            if ( $try < $MAX_RETRY_JOB ) {
+                $self->master->insert_queue(
+                    func => $queue->{func}, 
+                    args => $queue->{args},
+                    try  => $try,
+                );
+            }
+            else {
+                critf "retry time exceeded force ended queue, func:%s, try:%d, args:%s", $func, $try, $args;
+            }
+        }
     };
+
     1;
 }
 
@@ -245,9 +345,34 @@ sub enqueue {
     my $self = shift;
     my ($func, $args ) = @_;
     $args = Data::MessagePack->pack($args);
-    $self->master->create_queue( func => $func, args => $args );
+    $self->master->insert_queue(
+        func => $func, 
+        args => $args
+    );
 }
 
+1;
+
+package GreenBuckets::Model::Job;
+
+use strict;
+use warnings;
+use GreenBuckets;
+use Mouse;
+
+has 'args' => (
+    is => 'ro',
+    isa => 'Any',
+    required => 1,
+);
+
+has 'done' => (
+    is => 'rw',
+    isa => 'Flag',
+    default => 0,
+);
+
+__PACKAGE__->meta->make_immutable();
 
 1;
 

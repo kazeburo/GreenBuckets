@@ -3,8 +3,6 @@ package GreenBucket::Agent;
 use strict;
 use warnings;
 use GreenBuckets;
-use Coro;
-use Coro::Select;
 use Furl;
 use Net::DNS::Lite qw//;
 use Log::Minimal;
@@ -36,8 +34,10 @@ sub furl {
 sub get {
     my $self = shift;
     my $urls = shift;
+    my @urls = ref $urls ? @$urls : ($urls);
+
     my $res;
-    for my $url ( @$urls ) {
+    for my $url ( @urls ) {
         $res = $self->furl->get($url);
         infof("failed get: %s / %s", $url, $res->status_line) if ! $res->is_success;
         last if $res->is_success; 
@@ -50,37 +50,30 @@ sub put {
     my $urls = shift;
     my $content_ref = shift;
  
-    my @coros;
+    my @urls = ref $urls ? @$urls : ($urls);
+
     my @res;
-    for my $url ( @$urls ) {
-        push @coros, async {
-            debugf("put: %s", $url);
-            my $res = $self->furl->put( $url, [], $$content_ref );
-            infof("failed put: %s / %s", $url, $res->status_line) if ! $res->is_success;
-            push @res, $res;
-        };
+    for my $url ( @urls ) {
+        debugf("put: %s", $url);
+        my $res = $self->furl->put( $url, [], $$content_ref );
+        infof("failed put: %s / %s", $url, $res->status_line) if ! $res->is_success;
+        push @res, $res;
     }
 
-    $_->join for @coros;
-
     my @success = grep { $_->is_success } @res;
-    return @success == @$urls;
+    return @success == @urls;
 }
 
 sub delete {
     my $self = shift;
     my $urls = shift;
+    my @urls = ref $urls ? @$urls : ($urls);
 
-    my @coros;
-    for my $url ( @$urls ) {
-        push @coros, async {
-            my $res = $self->furl->delete( $url );
-            debugf("delete: %s / %s", $url, $res->status_line);
-        };
+    for my $url ( @urls ) {
+        my $res = $self->furl->delete( $url );
+        debugf("delete: %s / %s", $url, $res->status_line);
     }
-
-    $_->join for @coros;
-    return;
+    1;
 }
 
 1;

@@ -139,10 +139,10 @@ ok ! $schema->retrieve_object( bucket_id => 4, filename => 1 );
 
 subtest 'queue' => sub {
     ok ! $schema->retrieve_queue;
-    ok $schema->create_queue( func => 'test', args => 'bar' );
-    ok $schema->create_queue( func => 'foo', args => 'baz' );
-    is_deeply $schema->retrieve_queue, { id => 1, func => 'test', args => 'bar' };
-    is_deeply $schema->retrieve_queue, { id => 2, func => 'foo', args => 'baz' };
+    ok $schema->insert_queue( func => 'test', args => 'bar' );
+    ok $schema->insert_queue( func => 'foo', args => 'baz' );
+    is_deeply $schema->retrieve_queue, { id => 1, func => 'test', args => 'bar', try => 0 };
+    is_deeply $schema->retrieve_queue, { id => 2, func => 'foo', args => 'baz', try => 0 };
     ok ! $schema->retrieve_queue;
 };
 

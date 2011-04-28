@@ -52,7 +52,11 @@ __PACKAGE__->query(
     'insert_queue',
     func => { isa =>'Str' },
     args => { isa =>'Str' },
-    q{INSERT INTO  jobqueue (func, args) VALUES (?,?) },
+    'try' => {
+        isa => 'Natural',
+        default => 0,
+    },
+    q{INSERT INTO jobqueue (func, args, try) VALUES (?,?,?) },
 );
 
 sub retrieve_object {
@@ -187,9 +191,29 @@ sub insert_object {
         $args->{rid},
         $args->{gid},
     );
+    1;
+}
+
+sub update_object {
+    my $self = shift;
+    my $args = $self->args(
+        'rid'  => 'Natural',
+        'gid'  => 'Natural',
+        'bucket_id'  => 'Natural',
+        'filename' => 'Str',
+    );
+    
+    $self->query(
+        q{UPDATE objects SET rid =?, gid=? WHERE fid =? AND bucket_id =?},
+        $args->{rid},
+        $args->{gid},
+        filename_id($args->{filename}),
+        $args->{bucket_id},
+    );
 
     1;
 }
+
 
 sub delete_object {
     my $self = shift;
@@ -257,14 +281,6 @@ sub retrieve_queue {
     $queue;
 }
 
-sub create_queue {
-    my $self = shift;
-    my $args = $self->args(
-        'func' => 'Str',
-        'args'  => { isa => 'Str' },
-    );
-    $self->insert_queue($args);
-}
 
 1;
 
