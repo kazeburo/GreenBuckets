@@ -180,7 +180,6 @@ sub run {
           allow => $dispatcher_status_access,
           scoreboard => File::Temp::tempdir(CLEANUP => 1);
         enable c_match_if c_method('!',qw/GET HEAD/), "Auth::Basic", authenticator => $self->authen_cb;
-        enable 'Scope::Container';
         $app;
     };
 
