@@ -277,8 +277,7 @@ sub delete_object {
     undef $sc;
 
     # remove file
-    my @r_uri = map { $_->{uri} }
-        grep { $_->{can_read} && $_->{is_fresh} } @uri;
+    my @r_uri = map { $_->{uri} } @uri;
     if ( @r_uri ) {
         debugf "enqueue:delete_file args:%s",\@r_uri;
         $self->enqueue('delete_files', \@r_uri);
