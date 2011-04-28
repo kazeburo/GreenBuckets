@@ -75,7 +75,7 @@ has 'slave' => (
 
 has 'replica' => (
     is => 'ro',
-    isa => 'Natural',
+    isa => 'Replica',
     default => 3,
 );
 

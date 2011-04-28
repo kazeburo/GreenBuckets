@@ -145,21 +145,27 @@ sub put_object {
 
     my $gid;
     my $rid;
+    my @copied;
+    my @replicate_to;
     for my $f_node ( @f_nodes ) {
-        my $first_node = $f_node->{uri}->[0];
-        my $result = $self->agent->put($first_node, $content_ref);
+        my @nodes = @{$f_node->{uri}};
+        my @first_nodes = splice @nodes, 0, 2;
+        
+        my $result = $self->agent->put(\@first_nodes, $content_ref);
 
         if ( $result ) {
-            infof "%s/%s was uploaded to gid:%s first_node:%s", 
-                $bucket_name, $filename, $f_node->{gid}, $first_node;
+            infof "%s/%s was uploaded to gid:%s first_nodes:%s", 
+                $bucket_name, $filename, $f_node->{gid}, \@first_nodes;
             $gid = $f_node->{gid};
             $rid = $f_node->{rid};
+            @copied = @first_nodes;
+            @replicate_to = @nodes;
             last;
         }
 
-        infof "Failed upload %s/%s to group_id:%s first_node:%s",
-            $bucket_name, $filename, $f_node->{gid}, $first_node;
-        $self->enqueue('delete_files', $first_node );
+        infof "Failed upload %s/%s to group_id:%s first_nodes:%s",
+            $bucket_name, $filename, $f_node->{gid}, \@first_nodes;
+        $self->enqueue('delete_files', \@first_nodes );
 
     }
 
@@ -173,11 +179,15 @@ sub put_object {
         filename => $filename
     );
 
-    $self->enqueue('replicate_object',{
-        gid => $gid,
-        bucket_id => $bucket->{id},
-        filename => $filename
-    });
+    if ( @replicate_to ) {
+        $self->enqueue('replicate_object',{
+            gid => $gid,
+            bucket_id => $bucket->{id},
+            filename => $filename,
+            copied => \@copied,
+            replicate_to => \@replicate_to,
+        });
+    }
 
     return $self->res_ok;
 }
@@ -187,30 +197,24 @@ sub jobq_replicate_object {
     my $job = shift;
     my $args = $job->args;
 
-    my @uri = $self->master->retrieve_object_nodes(
-        bucket_id => $args->{bucket_id},
-        filename => $args->{filename},
-    );
-    my @r_uri = map { $_->{uri} } @uri;
-    my $first_node = shift @r_uri;
-
-    my $res = $self->agent->get($first_node);
-    die "cannot get $first_node , status_line:".$res->status_line if !$res->is_success;
+    my $res = $self->agent->get($args->{copied});
+    die sprintf("cannot get %s,  status_line:",
+                $args->{copied}, $res->status_line) if !$res->is_success;
     my $body = $res->content;
 
-    debugf 'replicate %s to %s', $first_node, \@r_uri;
-    my $result = $self->agent->put(\@r_uri, \$body);
+    debugf 'replicate %s to %s', $args->{copied}, $args->{replicate_to};
+    my $result = $self->agent->put($args->{replicate_to}, \$body);
     if ( $result ) {
         infof "success replicate object gid:%s %s to %s",
-            $args->{gid}, $first_node, \@r_uri;
+            $args->{gid}, $args->{copied}, $args->{replicate_to};
         $job->done(1);
         return;
     }
 
     infof "failed replicate object gid:%s %s to %s .. retry another fresh_nodes",
-            $args->{gid}, $first_node, \@r_uri;
- 
-    my @f_nodes = $self->master->retrieve_fresh_nodes(
+            $args->{gid}, $args->{copied}, $args->{replicate_to};
+
+     my @f_nodes = $self->master->retrieve_fresh_nodes(
         bucket_id => $args->{bucket_id}, 
         filename => $args->{filename},
         having => $self->config->replica
@@ -224,20 +228,20 @@ sub jobq_replicate_object {
         my $result = $self->agent->put( $f_node->{uri} );
         if ( $result ) {
             infof "%s was reuploaded to gid:%s %s", 
-                $first_node, $f_node->{gid}, $f_node->{uri};
+                $args->{copied}, $f_node->{gid}, $f_node->{uri};
             $gid = $f_node->{gid};
             $rid = $f_node->{rid};
             last;
         }
         infof "Failed replicate %s to gid:%s %s",
-            $first_node, $f_node->{gid}, $f_node->{uri};
+            $args->{copied}, $f_node->{gid}, $f_node->{uri};
         $self->enqueue('delete_files', $f_node->{uri} );
     }
 
-    die sprintf("replicate failed %s", $first_node) if !$gid;
+    die sprintf("failed replicate %s", $args->{copied}) if !$gid;
     
     infof "success reupload %s to gid:%s", 
-        $first_node, $gid;
+        $args->{copied}, $gid;
 
     my $sc = start_scope_container();
     $self->master->update_object( 
@@ -246,7 +250,7 @@ sub jobq_replicate_object {
         bucket_id => $args->{bucket_id},
         filename => $args->{filename}
     );
-    $self->enqueue('delete_files', $first_node );
+    $self->enqueue('delete_files', $args->{copied} );
 
     $job->done(1);
 }

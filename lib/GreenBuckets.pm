@@ -10,6 +10,10 @@ subtype 'Natural'
     => as 'Int'
     => where { $_ > 0 };
 
+subtype 'Replica'
+    => as 'Int'
+    => where { $_ > 1 };
+
 subtype 'Flag'
     => as 'Int'
     => where { $_ == 0 || $_ == 1 };
