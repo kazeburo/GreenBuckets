@@ -52,3 +52,14 @@ CREATE TABLE objects (
 
 --# SELECT * FROM buckets WHERE name = ?;
 --# SELECT nodes.* FROM nodes, objects WHERE objects.bucket_id = 1 AND objects.fid = 1 AND nodes.gid = objects.gid;
+
+INSERT INTO `nodes` VALUES (1,1,'http://127.0.0.1/1/',1,1);
+INSERT INTO `nodes` VALUES (2,1,'http://127.0.0.1/2/',1,1);
+INSERT INTO `nodes` VALUES (3,1,'http://127.0.0.1/3/',1,1);
+INSERT INTO `nodes` VALUES (4,2,'http://127.0.0.1/4/',1,1);
+INSERT INTO `nodes` VALUES (5,2,'http://127.0.0.1/5/',1,1);
+INSERT INTO `nodes` VALUES (6,2,'http://127.0.0.1/6/',1,1);
+INSERT INTO `nodes` VALUES (7,3,'http://127.0.0.1/7/',1,1);
+INSERT INTO `nodes` VALUES (8,3,'http://127.0.0.1/8/',1,1);
+INSERT INTO `nodes` VALUES (9,3,'http://127.0.0.1/9/',1,1);
+

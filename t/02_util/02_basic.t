@@ -11,28 +11,7 @@ like gen_rid(), qr/^\d+$/;
 
 my $object_path =  object_path(
     bucket_id => 1,
-    filename => 'bar.jpg',
-    rid => 3
-);
-like $object_path, qr!^\w/\w/\w/\w{56}\.jpg$!;
-
-$object_path =  object_path(
-    bucket_id => 1,
-    filename => 'bar',
-    rid => 3
-);
-like $object_path, qr!^\w/\w/\w/\w{56}$!;
-
-$object_path =  object_path(
-    bucket_id => 1,
-    filename => "\x{2600}.jpg",
-    rid => 3
-);
-like $object_path, qr!^\w/\w/\w/\w{56}.jpg$!;
-
-$object_path =  object_path(
-    bucket_id => 1,
-    filename => "\x{2600}.\x{2600}",
+    fid => 1,
     rid => 3
 );
 like $object_path, qr!^\w/\w/\w/\w{56}$!;

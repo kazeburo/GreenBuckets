@@ -6,8 +6,8 @@ use utf8;
 use Carp qw/croak/;
 use Scope::Container;
 use Scope::Container::DBI;
-use GreenBuckets::Util qw/filename_id gen_rid object_path/;
 use GreenBuckets::Schema;
+use Plack::MIME;
 use GreenBuckets::Dispatcher::Response;
 use GreenBuckets::Exception;
 use Class::Load qw/load_class/;
@@ -94,9 +94,10 @@ sub get_object {
         if !$res->is_success; 
 
     my $r_res = GreenBuckets::Dispatcher::Response->new(200);
-    for my $header ( qw/server content_type last_modified/ ) {
+    for my $header ( qw/server last-modified expires cache-control/ ) {
         $r_res->header($header, $res->header($header));
     }
+    $r_res->content_type( Plack::MIME->mime_type($filename) || 'text/plain' );
     $r_res->body($res->body);
     $r_res;
 }

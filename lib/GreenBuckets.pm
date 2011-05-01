@@ -10,6 +10,10 @@ subtype 'Natural'
     => as 'Int'
     => where { $_ > 0 };
 
+subtype 'Uint'
+    => as 'Int'
+    => where { $_ >= 0 };
+
 subtype 'Replica'
     => as 'Int'
     => where { $_ > 1 };
@@ -48,7 +52,7 @@ CREATE TABLE buckets (
 CREATE TABLE objects (
     fid INT UNSIGNED NOT NULL,
     bucket_id INT UNSIGNED NOT NULL,
-    rid SMALLINT UNSIGNED NOT NULL,
+    rid MEDIUMINT UNSIGNED NOT NULL,
     gid SMALLINT UNSIGNED NOT NULL,
     PRIMARY KEY(fid, bucket_id),
     INDEX (bucket_id)

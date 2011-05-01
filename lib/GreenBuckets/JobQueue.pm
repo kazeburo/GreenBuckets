@@ -13,10 +13,11 @@ use Parallel::Scoreboard;
 use GreenBuckets::Model;
 use Log::Minimal;
 use Term::ANSIColor qw//;
+use Time::HiRes qw//;
 use Mouse;
 
 our $MAX_JOB = 100;
-our $SLEEP = 1;
+our $SLEEP = 0.5;
 
 has 'config' => (
     is => 'ro',
@@ -119,7 +120,7 @@ sub run {
                 $scoreboard->update('.');
                 $i++ if $result;
                 last if $i > $MAX_JOB;
-                sleep $SLEEP unless $ENV{JOBQ_STOP};
+                Time::HiRes::sleep $SLEEP unless $ENV{JOBQ_STOP};
             }
         
             debugf "process finished";

@@ -24,31 +24,23 @@ sub gen_rid() {
         $PID=$$;
         srand();
     }
-    int(rand(0xfe)) + 1;
+    int(rand(16777215)) + 1;
 }
 
 sub object_path {
     state $rule = Data::Validator->new(
         bucket_id => 'Natural',
-        filename => 'Str',
+        fid => 'Natural',
         rid      => 'Natural'
     );
     my $args = $rule->validate(@_);
-    my $filename = Encode::is_utf8($args->{filename}) 
-        ? Encode::encode_utf8($args->{filename}) : $args->{filename};
 
-    my $suffix;
-    if ( $filename =~ m!\.([a-zA-Z0-9]+)$! ) {
-        $suffix = $1;
-    }
-    my $hash = sha224_hex($args->{bucket_id} . '/' . $args->{rid} . '/' . $filename);
-
+    my $hash = sha224_hex($args->{bucket_id} . '/' . $args->{rid} . '/' . $args->{fid});
     my $path = sprintf("%s/%s/%s/%s", 
                        substr($hash, 0, 1),
                        substr($hash, 1, 1),
                        substr($hash, 2, 1),
                        $hash);
-    $path .= '.'.$suffix if $suffix;
     $path;
 }
 

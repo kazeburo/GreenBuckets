@@ -31,6 +31,14 @@ __PACKAGE__->select_row(
 );
 
 __PACKAGE__->select_all(
+    'select_bucket_objects',
+    bucket_id => 'Natural',
+    fid => { isa => 'Uint', default => 0 },
+    limit => { isa => 'Natural', default => 300 },
+    q{SELECT * FROM objects WHERE bucket_id = ? LIMIT ?}
+);
+
+__PACKAGE__->select_all(
     'select_fresh_nodes',
     having => 'Natural',
     q{SELECT * FROM nodes WHERE gid IN (SELECT gid FROM nodes WHERE can_read=1 AND is_fresh=1 GROUP BY gid HAVING COUNT(gid) = ?)}
@@ -94,11 +102,11 @@ sub retrieve_object_nodes {
     my $rid = $nodes->[0]->{rid};
     my $object_path = object_path(
         bucket_id => $args->{bucket_id}, 
-        filename => $args->{filename}, 
+        fid => $fid,
         rid => $rid
     );
     my @uris =  sort {
-        filename_id($a->{uri}) <=> filename_id($b->{uri})
+        filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
     } map {
         my $node = $_->{node};
         $node =~ s!/$!!;
@@ -119,20 +127,25 @@ sub retrieve_fresh_nodes {
 
     my %group;
     my $rid = gen_rid();
+    my $fid = filename_id($args->{filename});
     my $object_path = object_path(
-        bucket_id => $args->{bucket_id}, 
-        filename  => $args->{filename},
+        bucket_id => $args->{bucket_id},
+        fid => $fid,
         rid => $rid
     );
     for my $node ( @$nodes ) {
         $group{$node->{gid}} ||= [];
         my $node_name = $node->{node};
         $node_name =~ s!/$!!;
-        push @{$group{$node->{gid}}}, $node_name . '/' . $object_path;
+        push @{$group{$node->{gid}}}, {
+            uri => $node_name . '/' . $object_path,
+            %{$node}
+        };
     }
+
     for my $gid ( keys %group ) {
-        my @sort = sort {
-            filename_id($a) <=> filename_id($b)
+        my @sort = map { $_->{uri}} sort {
+            filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
         } @{$group{$gid}};
         $group{$gid} = \@sort;
     }
