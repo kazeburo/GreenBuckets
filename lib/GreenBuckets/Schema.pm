@@ -33,7 +33,6 @@ __PACKAGE__->select_row(
 __PACKAGE__->select_all(
     'select_bucket_objects',
     bucket_id => 'Natural',
-    fid => { isa => 'Uint', default => 0 },
     limit => { isa => 'Natural', default => 300 },
     q{SELECT * FROM objects WHERE bucket_id = ? LIMIT ?}
 );
@@ -71,10 +70,11 @@ sub retrieve_object {
     my $self = shift;
     my $args= $self->args(
         'bucket_id'  => 'Natural',
-        'filename' => 'Str',
+        'filename' => { isa =>'Str', xor => [qw/fid/] },
+        'fid' => 'Natural',
     );
 
-    my $fid = filename_id($args->{filename});
+    my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
     $self->select_object(
         bucket_id => $args->{bucket_id},
         fid => $fid,
@@ -85,17 +85,18 @@ sub retrieve_object_nodes {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
-        'filename' => 'Str',
+        'filename' => { isa =>'Str', xor => [qw/fid/] },
+        'fid' => 'Natural',
     );
 
-    my $fid = filename_id($args->{filename});
+    my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
     my $nodes = $self->select_object_nodes(
         bucket_id => $args->{bucket_id},
         fid => $fid
     );
     if ( ! @$nodes ) {
-        debugf "not found bucket_id:%s, filename:%s, fid:%s",
-            $args->{bucket_id}, $args->{filename}, $fid;
+        debugf "not found bucket_id:%s, fid:%s",
+            $args->{bucket_id}, $fid;
         return;
     }
 
@@ -119,7 +120,8 @@ sub retrieve_fresh_nodes {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
-        'filename' => 'Str',
+        'filename' => { isa =>'Str', xor => [qw/fid/] },
+        'fid' => 'Natural',
         'having' => 'Int',
     );
 
@@ -127,7 +129,7 @@ sub retrieve_fresh_nodes {
 
     my %group;
     my $rid = gen_rid();
-    my $fid = filename_id($args->{filename});
+    my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
     my $object_path = object_path(
         bucket_id => $args->{bucket_id},
         fid => $fid,
@@ -232,12 +234,14 @@ sub delete_object {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
-        'filename' => 'Str',
+        'filename' => { isa => 'Str', xor => [qw/fid/] },
+        'fid' => 'Natural',
     );
 
+    my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
     $self->query(
         q{DELETE FROM objects WHERE fid = ? AND bucket_id = ? LIMIT 1},
-        filename_id($args->{filename}),
+        $fid,
         $args->{bucket_id},
     );
 }
@@ -261,17 +265,11 @@ sub delete_bucket {
     $self->query("UPDATE buckets SET deleted = ? WHERE id = ?", $args->{deleted}, $args->{bucket_id});
 }
 
-
 sub delete_bucket_all {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
     );
-    my $ret;
-    do {
-        $ret = $self->query("DELETE FROM objects WHERE bucket_id = ? LIMIT 1000", $args->{bucket_id});
-    } while ( $ret > 0 );
-
     $self->query("DELETE FROM buckets WHERE id = ?", $args->{bucket_id});
 }
 

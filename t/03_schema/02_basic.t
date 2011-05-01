@@ -133,10 +133,6 @@ $schema->delete_bucket( bucket_id => 4, deleted => 0 );
 ok $schema->delete_object( bucket_id => 4, filename => 2 );
 ok ! $schema->retrieve_object( bucket_id => 4, filename => 2 );
 
-ok $schema->delete_bucket_all( bucket_id => 4 );
-ok ! $schema->select_bucket( name => 'test');
-ok ! $schema->retrieve_object( bucket_id => 4, filename => 1 );
-
 subtest 'queue' => sub {
     ok ! $schema->retrieve_queue;
     ok $schema->insert_queue( func => 'test', args => 'bar' );

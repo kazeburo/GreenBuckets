@@ -298,6 +298,59 @@ sub jobq_delete_files {
     $job->done(1);
 }
 
+sub delete_bucket {
+    my $self = shift;
+    my ($bucket_name) = @_;
+
+    my $sc = start_scope_container();
+    my $master = $self->master;
+    my $bucket = $master->select_bucket(
+        name => $bucket_name
+    );
+    http_croak(404) unless $bucket; # 404
+    http_croak(403) if ! $bucket->{enabled}; # 403
+    http_croak(404) if $bucket->{deleted}; # 404;
+
+    $master->delete_bucket(
+        bucket_id => $bucket->{id},
+        deleted => 1
+    );
+
+    $self->enqueue('delete_bucket', $bucket->{id});
+
+    return $self->res_ok;
+}
+
+sub jobq_delete_bucket {
+    my $self = shift;
+    my $job = shift;
+    my $bucket_id = $job->args;
+    my $master = $self->master;
+    while ( 1 ) {
+        my $rows = $master->select_bucket_objects( bucket_id => $bucket_id );
+        last if ! @$rows;
+        my @delete_uris;
+        for my $object ( @$rows ) {
+            debugf("delete object %s", $object);
+            my @uri = $master->retrieve_object_nodes(
+                bucket_id => $bucket_id,
+                fid => $object->{fid},
+            );
+            $master->delete_object(
+                bucket_id => $bucket_id,
+                fid => $object->{fid},
+            );
+            push @delete_uris, map { $_->{uri} } @uri;
+        }
+        if ( @delete_uris ) {
+            $self->enqueue('delete_files', \@delete_uris);
+        }
+    };
+    infof("delete bucket completly id:%s", $bucket_id);
+    $master->delete_bucket_all( bucket_id => $bucket_id );
+    $job->done(1);
+}
+
 sub dequeue {
     my $self = shift;
     my $sc = start_scope_container;

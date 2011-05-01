@@ -15,6 +15,7 @@ use GreenBuckets::Dispatcher::Response;
 use GreenBuckets::Dispatcher::Connection;
 use GreenBuckets::Model;
 use Log::Minimal;
+use JSON;
 use Mouse;
 
 has 'config' => (
@@ -66,8 +67,17 @@ sub delete_object {
 
 sub manip_bucket {
     my ($self, $c) = @_;
-    my ($bucket_name) = @{$c->args->{splat}};
-    return $c->res->server_error;
+    my $bucket_name = $c->args->{bucket};
+    my $content = $c->req->raw_body;
+    return $c->res->server_error unless $content;
+    my $args = decode_json( Encode::decode_utf8($content) );
+
+    if ( $args->{method} eq 'delete_bucket' ) {
+        return $self->model->delete_bucket($bucket_name);
+    }
+    else {
+        return $c->res->server_error
+    }
 }
 
 sub build_app {
