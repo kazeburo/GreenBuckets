@@ -75,6 +75,9 @@ sub manip_bucket {
     if ( $args->{method} eq 'delete_bucket' ) {
         return $self->model->delete_bucket($bucket_name);
     }
+    if ( $args->{method} eq 'delete_object' ) {
+        return $self->model->delete_object_multi($bucket_name, $args->{args});
+    }
     else {
         return $c->res->server_error
     }

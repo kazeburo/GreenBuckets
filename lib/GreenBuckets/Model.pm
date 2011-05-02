@@ -68,8 +68,6 @@ sub get_object {
     my $self = shift;
     my ($bucket_name, $filename) = @_;
 
-    my $sc = start_scope_container();
-
     my $slave = $self->slave;
     my $bucket = $slave->select_bucket(
         name => $bucket_name
@@ -83,7 +81,7 @@ sub get_object {
         filename => $filename,
     );
 
-    undef $sc;
+    undef $slave;
     http_croak(404) if !@uri;
     
     my @r_uri = map { $_->{uri} } grep { $_->{can_read} } @uri;
@@ -106,10 +104,7 @@ sub get_bucket {
     my $self = shift;
     my ($bucket_name) = @_;
 
-    my $sc = start_scope_container();
-
-    my $slave = $self->slave;
-    my $bucket = $slave->select_bucket(
+    my $bucket = $self->slave->select_bucket(
         name => $bucket_name
     );
     http_croak(404) unless $bucket; # 404
@@ -123,7 +118,6 @@ sub put_object {
     my $self = shift;
     my ($bucket_name, $filename, $content_ref) = @_;
 
-    my $sc = start_scope_container();
     my $master = $self->master;
     my $bucket = $master->retrieve_or_insert_bucket(
         name => $bucket_name
@@ -141,7 +135,6 @@ sub put_object {
         having => $self->config->replica
     );
     undef $master;
-    undef $sc;
     http_croak(500, "cannot find fresh_nodes") if !@f_nodes;
 
     my $gid;
@@ -172,7 +165,7 @@ sub put_object {
 
     http_croak(500,"Upload failed %s/%s", $bucket_name, $filename) if !$gid;
 
-    $sc = start_scope_container();
+    my $sc = start_scope_container();
     $self->master->insert_object( 
         gid => $gid,
         rid => $rid,
@@ -279,8 +272,6 @@ sub delete_object {
         filename => $filename
     );
 
-    undef $sc;
-
     # remove file
     my @r_uri = map { $_->{uri} } @uri;
     if ( @r_uri ) {
@@ -297,6 +288,47 @@ sub jobq_delete_files {
     $self->agent->delete($job->args);
     $job->done(1);
 }
+
+sub delete_object_multi {
+    my $self = shift;
+    my $bucket_name = shift;
+    my $filenames = shift;
+    my @filenames = ref $filenames ? @$filenames : ($filenames);
+
+    my $sc = start_scope_container();
+    my $master = $self->master;
+    my $bucket = $master->select_bucket(
+        name => $bucket_name
+    );
+    http_croak(404) unless $bucket; # 404
+    http_croak(403) if ! $bucket->{enabled}; # 403
+    http_croak(404) if $bucket->{deleted}; # 404;
+
+    while ( my @spliced = splice( @filenames, 0, 300 ) ) {
+        
+        my $grouped_uri = $master->retrieve_object_nodes_multi(
+            bucket_id => $bucket->{id},
+            filename => \@spliced
+        );
+        
+        for my $fid ( @spliced ) {
+            warnf "not found, bucket_id:%d, fid:%d", $bucket->{id}, $fid
+                if ! exists $grouped_uri->{$fid};
+        }
+
+        $master->delete_object_multi(
+            bucket_id => $bucket->{id}, 
+            filename => \@spliced,
+        );
+
+        my @r_uri = map { $_->{uri} } map { @{$_} } values %$grouped_uri;
+        debugf "enqueue:delete_file args:%s",\@r_uri;
+        $self->enqueue('delete_files', \@r_uri);
+    }
+
+    return $self->res_ok;
+}
+
 
 sub delete_bucket {
     my $self = shift;
@@ -353,9 +385,7 @@ sub jobq_delete_bucket {
 
 sub dequeue {
     my $self = shift;
-    my $sc = start_scope_container;
     my $queue = $self->master->retrieve_queue;
-    undef $sc;
     return unless $queue;
 
     my $args = Data::MessagePack->unpack($queue->{args});

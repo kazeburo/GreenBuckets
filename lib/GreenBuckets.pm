@@ -55,7 +55,7 @@ CREATE TABLE objects (
     rid MEDIUMINT UNSIGNED NOT NULL,
     gid SMALLINT UNSIGNED NOT NULL,
     PRIMARY KEY(fid, bucket_id),
-    INDEX (bucket_id)
+    INDEX (bucket_id, fid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 
 @@ jobqueue

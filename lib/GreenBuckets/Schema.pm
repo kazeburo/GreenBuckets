@@ -20,7 +20,7 @@ __PACKAGE__->select_all(
     'select_object_nodes',
     fid => 'Natural',
     bucket_id => 'Natural',
-    q{SELECT objects.rid, nodes.* FROM nodes, objects WHERE objects.fid = ? AND objects.bucket_id = ? AND nodes.gid = objects.gid;}
+    q{SELECT objects.rid, nodes.* FROM objects left join nodes on objects.gid = nodes.gid  WHERE objects.fid = ? AND objects.bucket_id = ?}
 );
 
 __PACKAGE__->select_row(
@@ -114,6 +114,52 @@ sub retrieve_object_nodes {
         { uri => $node . '/' . $object_path, %{$_} }
     } @$nodes;
     @uris;
+}
+
+sub retrieve_object_nodes_multi {
+    my $self = shift;
+    my $args = $self->args(
+        'bucket_id'  => 'Natural',
+        'filename' => { isa =>'ArrayRef[Str]', xor => [qw/fid/] },
+        'fid' => 'ArrayRef[Natural]',
+    );
+
+   my @fids = exists $args->{filename}
+       ? map { filename_id($_) } @{$args->{filename}}
+       : @{$args->{fid}};
+
+    my $query = join ",", map { "?" } @fids;
+    $query = qq{SELECT objects.*, nodes.* FROM objects LEFT JOIN nodes ON nodes.gid = objects.gid WHERE objects.fid IN ($query) AND objects.bucket_id = ?};
+    my $rows = $self->select_all($query, @fids, $args->{bucket_id});
+
+    my %fids;
+    for my $row ( @$rows ) {
+        $fids{$row->{fid}} ||= [];
+        push @{$fids{$row->{fid}}}, $row;
+    }
+
+    my %result;
+    for my $fid ( @fids ) {
+        next if ( ! exists $fids{$fid} );
+        my $nodes = $fids{$fid};
+        
+        my $rid = $nodes->[0]->{rid};
+        my $object_path = object_path(
+            bucket_id => $args->{bucket_id}, 
+            fid => $fid,
+            rid => $rid
+        );
+        my @uris =  sort {
+            filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+        } map {
+            my $node = $_->{node};
+            $node =~ s!/$!!;
+            { uri => $node . '/' . $object_path, %{$_} }
+        } @$nodes;
+
+        $result{$fid} = \@uris;
+    }
+    \%result;
 }
 
 sub retrieve_fresh_nodes {
@@ -244,6 +290,23 @@ sub delete_object {
         $fid,
         $args->{bucket_id},
     );
+}
+
+sub delete_object_multi {
+    my $self = shift;
+    my $args = $self->args(
+        'bucket_id'  => 'Natural',
+        'filename' => { isa =>'ArrayRef[Str]', xor => [qw/fid/] },
+        'fid' => 'ArrayRef[Natural]',
+    );
+
+   my @fids = exists $args->{filename}
+       ? map { filename_id($_) } @{$args->{filename}}
+       : @{$args->{fid}};
+
+    my $query = join ",", map { "?" } @fids;
+    $query = qq{DELETE FROM objects WHERE fid IN ($query) AND bucket_id = ?};
+    $self->query($query, @fids, $args->{bucket_id});
 }
 
 sub stop_bucket {
