@@ -36,10 +36,9 @@ sub object_path {
     my $args = $rule->validate(@_);
 
     my $hash = sha224_hex($args->{bucket_id} . '/' . $args->{rid} . '/' . $args->{fid});
-    my $path = sprintf("%s/%s/%s/%s", 
-                       substr($hash, 0, 1),
-                       substr($hash, 1, 1),
-                       substr($hash, 2, 1),
+    my $path = sprintf("%02d/%02d/%s",
+                       int( $args->{rid} % 10000 / 100),
+                       $args->{rid} % 100,
                        $hash);
     $path;
 }
