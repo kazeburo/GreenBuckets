@@ -76,7 +76,12 @@ sub manip_bucket {
         return $self->model->delete_bucket($bucket_name);
     }
     if ( $args->{method} eq 'delete_object' ) {
-        return $self->model->delete_object_multi($bucket_name, $args->{args});
+        my @path;
+        foreach my $ppath ( @{$args->{args}} ) {
+            $ppath =~ s!^/!!;
+            push @path, $ppath;
+        }
+        return $self->model->delete_object_multi($bucket_name, \@path);
     }
     else {
         return $c->res->server_error
