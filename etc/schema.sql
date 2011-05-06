@@ -63,3 +63,12 @@ INSERT INTO `nodes` VALUES (7,3,'http://127.0.0.1/7/',1,1);
 INSERT INTO `nodes` VALUES (8,3,'http://127.0.0.1/8/',1,1);
 INSERT INTO `nodes` VALUES (9,3,'http://127.0.0.1/9/',1,1);
 
+UPDATE nodes SET node = 'http://127.0.0.1:8080/1' WHERE id =1;
+UPDATE nodes SET node = 'http://127.0.0.1:8080/2' WHERE id =2;
+UPDATE nodes SET node = 'http://127.0.0.1:8080/3' WHERE id =3;
+UPDATE nodes SET node = 'http://127.0.0.1:8080/4' WHERE id =4;
+UPDATE nodes SET node = 'http://127.0.0.1:8080/5' WHERE id =5;
+UPDATE nodes SET node = 'http://127.0.0.1:8080/6' WHERE id =6;
+UPDATE nodes SET node = 'http://127.0.0.1:8080/7' WHERE id =7;
+UPDATE nodes SET node = 'http://127.0.0.1:8080/8' WHERE id =8;
+UPDATE nodes SET node = 'http://127.0.0.1:8080/9' WHERE id =9;

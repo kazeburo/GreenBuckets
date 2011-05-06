@@ -1,4 +1,4 @@
-package GreenBucket::Agent;
+package GreenBuckets::Agent;
 
 use strict;
 use warnings;
@@ -27,7 +27,7 @@ sub furl {
         inet_aton => \&Net::DNS::Lite::inet_aton,
         timeout   => 10,
         agent => 'GreenBucketAgent/$GreenBucket::VERSION',
-        headers => @headers,
+        headers => \@headers,
     );
 }
 
