@@ -43,6 +43,26 @@ __PACKAGE__->select_all(
     q{SELECT * FROM nodes WHERE gid IN (SELECT gid FROM nodes WHERE can_read=1 AND is_fresh=1 GROUP BY gid HAVING COUNT(gid) = ?)}
 );
 
+__PACKAGE__->query(
+    'enable_bucket',
+    'enabled' => { isa => 'Flag', default => 0 },
+    'bucket_id'  => 'Natural',
+    q{UPDATE buckets SET enabled = ? WHERE id = ?}
+);
+
+__PACKAGE__->query(
+    'delete_bucket',
+    'deleted' => { isa => 'Flag', default => 1 },
+    'bucket_id'  => 'Natural',
+    q{UPDATE buckets SET deleted = ? WHERE id = ?},
+);
+
+__PACKAGE__->query(
+    'delete_bucket_all',
+    'bucket_id'  => 'Natural',
+    "DELETE FROM buckets WHERE id = ?"
+);
+
 __PACKAGE__->select_all(
     'select_queue',
     limit => { isa =>'Natural', default => 10 },
@@ -59,10 +79,7 @@ __PACKAGE__->query(
     'insert_queue',
     func => { isa =>'Str' },
     args => { isa =>'Str' },
-    'try' => {
-        isa => 'Natural',
-        default => 0,
-    },
+    try => { isa => 'Natural', default => 0 },
     q{INSERT INTO jobqueue (func, args, try) VALUES (?,?,?) },
 );
 
@@ -298,33 +315,6 @@ sub delete_object_multi {
     my $query = join ",", map { "?" } @fids;
     $query = qq{DELETE FROM objects WHERE fid IN ($query) AND bucket_id = ?};
     $self->query($query, @fids, $args->{bucket_id});
-}
-
-sub enable_bucket {
-    my $self = shift;
-    my $args = $self->args(
-        'bucket_id'  => 'Natural',
-        'enabled' => { isa => 'Flag', default => 0 }
-    );
-    $self->query("UPDATE buckets SET enabled = ? WHERE id = ?", $args->{enabled}, $args->{bucket_id});
-}
-
-
-sub delete_bucket {
-    my $self = shift;
-    my $args = $self->args(
-        'bucket_id'  => 'Natural',
-        'deleted' => { isa => 'Flag', default => 1 }
-    );
-    $self->query("UPDATE buckets SET deleted = ? WHERE id = ?", $args->{deleted}, $args->{bucket_id});
-}
-
-sub delete_bucket_all {
-    my $self = shift;
-    my $args = $self->args(
-        'bucket_id'  => 'Natural',
-    );
-    $self->query("DELETE FROM buckets WHERE id = ?", $args->{bucket_id});
 }
 
 sub retrieve_queue {
