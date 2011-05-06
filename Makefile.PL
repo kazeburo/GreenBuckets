@@ -1,3 +1,9 @@
+use Config;
+BEGIN {
+    warn "A 64-bit Perl is required" && exit
+        unless $Config{use64bitint};
+}
+
 use inc::Module::Install;
 name 'GreenBuckets';
 all_from 'lib/GreenBuckets.pm';
@@ -17,7 +23,7 @@ requires 'List::Util';
 requires 'HTTP::Exception';
 requires 'Data::Validator';
 requires 'parent';
-requires 'Digest::MurmurHash';
+requires 'Digest::FNV';
 requires 'Digest::SHA';
 requires 'Hash::MultiValue';
 requires 'App::CLI';
@@ -41,6 +47,7 @@ author_tests 'xt';
 test_requires 'Test::More';
 test_requires 'Test::TCP';
 test_requires 'Test::mysqld' if $Module::Install::AUTHOR;
+test_requires 'Perlbal' if $Module::Install::AUTHOR;
 
 auto_set_repository;
 #auto_include;

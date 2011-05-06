@@ -31,7 +31,7 @@ CREATE TABLE buckets (
 --# INSERT INTO buckets SET name = 'baz';
 
 CREATE TABLE objects (
-    fid INT UNSIGNED NOT NULL, --# murmurhash(filename)
+    fid INT UNSIGNED NOT NULL, --# hash(filename)
     bucket_id INT UNSIGNED NOT NULL,
     rid SMALLINT UNSIGNED NOT NULL,
     gid SMALLINT UNSIGNED NOT NULL,
@@ -53,22 +53,13 @@ CREATE TABLE objects (
 --# SELECT * FROM buckets WHERE name = ?;
 --# SELECT nodes.* FROM nodes, objects WHERE objects.bucket_id = 1 AND objects.fid = 1 AND nodes.gid = objects.gid;
 
-INSERT INTO `nodes` VALUES (1,1,'http://127.0.0.1/1/',1,1);
-INSERT INTO `nodes` VALUES (2,1,'http://127.0.0.1/2/',1,1);
-INSERT INTO `nodes` VALUES (3,1,'http://127.0.0.1/3/',1,1);
-INSERT INTO `nodes` VALUES (4,2,'http://127.0.0.1/4/',1,1);
-INSERT INTO `nodes` VALUES (5,2,'http://127.0.0.1/5/',1,1);
-INSERT INTO `nodes` VALUES (6,2,'http://127.0.0.1/6/',1,1);
-INSERT INTO `nodes` VALUES (7,3,'http://127.0.0.1/7/',1,1);
-INSERT INTO `nodes` VALUES (8,3,'http://127.0.0.1/8/',1,1);
-INSERT INTO `nodes` VALUES (9,3,'http://127.0.0.1/9/',1,1);
+INSERT INTO `nodes` VALUES (1,1,'http://127.0.0.1:8080/1/',1,1);
+INSERT INTO `nodes` VALUES (2,1,'http://127.0.0.1:8080/2/',1,1);
+INSERT INTO `nodes` VALUES (3,1,'http://127.0.0.1:8080/3/',1,1);
+INSERT INTO `nodes` VALUES (4,2,'http://127.0.0.1:8080/4/',1,1);
+INSERT INTO `nodes` VALUES (5,2,'http://127.0.0.1:8080/5/',1,1);
+INSERT INTO `nodes` VALUES (6,2,'http://127.0.0.1:8080/6/',1,1);
+INSERT INTO `nodes` VALUES (7,3,'http://127.0.0.1:8080/7/',1,1);
+INSERT INTO `nodes` VALUES (8,3,'http://127.0.0.1:8080/8/',1,1);
+INSERT INTO `nodes` VALUES (9,3,'http://127.0.0.1:8080/9/',1,1);
 
-UPDATE nodes SET node = 'http://127.0.0.1:8080/1' WHERE id =1;
-UPDATE nodes SET node = 'http://127.0.0.1:8080/2' WHERE id =2;
-UPDATE nodes SET node = 'http://127.0.0.1:8080/3' WHERE id =3;
-UPDATE nodes SET node = 'http://127.0.0.1:8080/4' WHERE id =4;
-UPDATE nodes SET node = 'http://127.0.0.1:8080/5' WHERE id =5;
-UPDATE nodes SET node = 'http://127.0.0.1:8080/6' WHERE id =6;
-UPDATE nodes SET node = 'http://127.0.0.1:8080/7' WHERE id =7;
-UPDATE nodes SET node = 'http://127.0.0.1:8080/8' WHERE id =8;
-UPDATE nodes SET node = 'http://127.0.0.1:8080/9' WHERE id =9;

@@ -5,17 +5,23 @@ use warnings;
 use 5.10.0;
 use parent qw/Exporter/;
 use Encode;
-use Digest::MurmurHash qw/murmur_hash/;
+use Digest::FNV qw/fnv32a fnv64a/;
 use Digest::SHA qw/sha224_hex/;
 use GreenBuckets;
 use Data::Validator;
 
-our @EXPORT_OK = qw/filename_id gen_rid object_path/;
+our @EXPORT_OK = qw/filename_id sort_hash gen_rid object_path/;
 
 sub filename_id($) {
     my $filename = shift;
     $filename = Encode::encode_utf8($filename) if Encode::is_utf8($filename);
-    murmur_hash($filename);   
+    fnv64a($filename)->{longlong};
+}
+
+sub sort_hash($) {
+    my $filename = shift;
+    $filename = Encode::encode_utf8($filename) if Encode::is_utf8($filename);
+    fnv32a($filename);
 }
 
 my $PID=$$;
@@ -24,7 +30,7 @@ sub gen_rid() {
         $PID=$$;
         srand();
     }
-    int(rand(16777215)) + 1;
+    int(rand(65535)) + 1;
 }
 
 sub object_path {

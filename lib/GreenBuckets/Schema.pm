@@ -7,7 +7,7 @@ use 5.10.0;
 use parent qw/DBIx::Sunny::Schema/;
 use List::Util qw/shuffle/;
 use GreenBuckets;
-use GreenBuckets::Util qw/filename_id gen_rid object_path/;
+use GreenBuckets::Util qw/filename_id sort_hash gen_rid object_path/;
 use Log::Minimal;
 
 __PACKAGE__->select_row(
@@ -109,7 +109,7 @@ sub retrieve_object_nodes {
         rid => $rid
     );
     my @uris =  sort {
-        filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+        sort_hash(join "/", $a->{id},$object_path) <=> sort_hash(join "/", $b->{id},$object_path)
     } map {
         my $node = $_->{node};
         $node =~ s!/$!!;
@@ -152,7 +152,7 @@ sub retrieve_object_nodes_multi {
             rid => $rid
         );
         my @uris =  sort {
-            filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+            sort_hash(join "/", $a->{id},$object_path) <=> sort_hash(join "/", $b->{id},$object_path)
         } map {
             my $node = $_->{node};
             $node =~ s!/$!!;
@@ -201,7 +201,7 @@ sub retrieve_fresh_nodes {
 
     for my $gid ( keys %group ) {
         my @sort = map { $_->{uri}} sort {
-            filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+            sort_hash(join "/", $a->{id},$object_path) <=> sort_hash(join "/", $b->{id},$object_path)
         } @{$group{$gid}};
         $group{$gid} = \@sort;
     }
