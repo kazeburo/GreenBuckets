@@ -66,21 +66,6 @@ __PACKAGE__->query(
     q{INSERT INTO jobqueue (func, args, try) VALUES (?,?,?) },
 );
 
-sub retrieve_object {
-    my $self = shift;
-    my $args= $self->args(
-        'bucket_id'  => 'Natural',
-        'filename' => { isa =>'Str', xor => [qw/fid/] },
-        'fid' => 'Natural',
-    );
-
-    my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
-    $self->select_object(
-        bucket_id => $args->{bucket_id},
-        fid => $fid,
-    );
-}
-
 sub retrieve_object_nodes {
     my $self = shift;
     my $args = $self->args(
@@ -169,12 +154,18 @@ sub retrieve_fresh_nodes {
         'filename' => { isa =>'Str', xor => [qw/fid/] },
         'fid' => 'Natural',
         'having' => 'Int',
+        'previous_rid' => { isa => 'Natural', optional => 1 }
     );
 
     my $nodes = $self->select_fresh_nodes( having => $args->{having} );
 
     my %group;
     my $rid = gen_rid();
+    if ( exists $args->{previous_rid} ) {
+        while ( $rid == $args->{previous_rid} ) {
+            $rid = gen_rid();
+        }
+    }
     my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
     my $object_path = object_path(
         bucket_id => $args->{bucket_id},

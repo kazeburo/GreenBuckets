@@ -14,7 +14,7 @@ my $object_path =  object_path(
     fid => 1,
     rid => 3
 );
-like $object_path, qr!^\w/\w/\w/\w{56}$!;
+like $object_path, qr!^\d{2}/\d{2}/\w{56}$!;
 
 done_testing();
 

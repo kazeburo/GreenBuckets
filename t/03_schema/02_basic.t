@@ -38,6 +38,8 @@ is_deeply $nodes2, [
     { rid => 254, gid => 3, id => 9, node => 'http://192.168.0.9/', can_read => 1, is_fresh => 1 },
 ];
 
+is_deeply $schema->select_object( bucket_id => 1, fid => filename_id(3) ),
+    { fid => filename_id(3), bucket_id =>1, rid => 252, gid => 2 };
 is_deeply $schema->select_object( fid => filename_id(5), bucket_id => 2 ),
     { fid => filename_id(5), bucket_id =>2, rid => 254, gid => 3 };
 
@@ -49,11 +51,6 @@ is_deeply $schema->select_fresh_nodes(having=>3), [
     { id => 5, gid => 2, node => 'http://192.168.0.5/', can_read => 1, is_fresh => 1 },
     { id => 6, gid => 2, node => 'http://192.168.0.6/', can_read => 1, is_fresh => 1 },
 ];
-
-is_deeply $schema->retrieve_object( bucket_id => 1, filename => 3 ),
-    { fid => filename_id(3), bucket_id =>1, rid => 252, gid => 2 };
-is_deeply $schema->retrieve_object( bucket_id => 2, filename => 5 ),
-    { fid => filename_id(5), bucket_id =>2, rid => 254, gid => 3 };
 
 my @nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 3 );
 is( scalar @nodes, 3);
@@ -104,9 +101,9 @@ ok $schema->insert_object(
     filename => 3,
 );
 
-is_deeply $schema->retrieve_object( bucket_id => $bucket1->{id}, filename => 1 ),
+is_deeply $schema->select_object( bucket_id => $bucket1->{id}, fid => filename_id(1) ),
     { fid => filename_id(1), bucket_id => 4, rid => 250, gid => 1 };
-is_deeply $schema->retrieve_object( bucket_id => $bucket1->{id}, filename => 2 ),
+is_deeply $schema->select_object( bucket_id => $bucket1->{id}, fid => filename_id(2) ),
     { fid => filename_id(2), bucket_id => 4, rid => 250, gid => 1 };
 
 
@@ -146,11 +143,11 @@ ok $@;
 $schema->delete_bucket( bucket_id => 4, deleted => 0 );
 
 ok $schema->delete_object( bucket_id => 4, filename => 2 );
-ok ! $schema->retrieve_object( bucket_id => 4, filename => 2 );
+ok ! $schema->select_object( bucket_id => 4, fid => filename_id(2) );
 
 ok $schema->delete_object_multi( bucket_id => 4, filename => [1,3] );
-ok ! $schema->retrieve_object( bucket_id => 4, filename => 1 );
-ok ! $schema->retrieve_object( bucket_id => 4, filename => 3 );
+ok ! $schema->select_object( bucket_id => 4, fid => filename_id(1) );
+ok ! $schema->select_object( bucket_id => 4, fid => filename_id(3) );
 
 subtest 'queue' => sub {
     ok ! $schema->retrieve_queue;

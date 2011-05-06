@@ -116,7 +116,7 @@ sub get_bucket {
 
 sub put_object {
     my $self = shift;
-    my ($bucket_name, $filename, $content_ref) = @_;
+    my ($bucket_name, $filename, $content_ref, $overwrite_ok) = @_;
 
     my $master = $self->master;
     my $bucket = $master->retrieve_or_insert_bucket(
@@ -125,15 +125,25 @@ sub put_object {
     http_croak(403) if ! $bucket->{enabled};
     http_croak(503) if $bucket->{deleted}; #XXX 
 
-    if ( $master->retrieve_object( bucket_id => $bucket->{id}, filename => $filename ) ) {
+    my @exists_nodes = $master->retrieve_object_nodes(
+        bucket_id => $bucket->{id},
+        filename => $filename
+    );
+
+    if ( @exists_nodes && !$overwrite_ok) {
         http_croak(409, "duplicated upload %s/%s", $bucket_name, $filename);
     }
 
-    my @f_nodes = $master->retrieve_fresh_nodes(
+    my %fresh_nodes_args = (
         bucket_id => $bucket->{id}, 
         filename => $filename,
-        having => $self->config->replica
+        having => $self->config->replica,
     );
+    if ( @exists_nodes ) {
+        $fresh_nodes_args{previous_rid} = $exists_nodes[0]->{rid}; # objects.rid
+    }
+
+    my @f_nodes = $master->retrieve_fresh_nodes(\%fresh_nodes_args);
     undef $master;
     http_croak(500, "cannot find fresh_nodes") if !@f_nodes;
 
@@ -166,12 +176,14 @@ sub put_object {
     http_croak(500,"Upload failed %s/%s", $bucket_name, $filename) if !$gid;
 
     my $sc = start_scope_container();
-    $self->master->insert_object( 
+    $master = $self->master;
+    my $method =  @exists_nodes ? 'update_object' : 'insert_object';
+    $master->can($method)->($master, {
         gid => $gid,
         rid => $rid,
         bucket_id => $bucket->{id},
-        filename => $filename
-    );
+        filename => $filename,        
+    });
 
     if ( @replicate_to ) {
         $self->enqueue('replicate_object',{
@@ -181,6 +193,15 @@ sub put_object {
             copied => \@copied,
             replicate_to => \@replicate_to,
         });
+    }
+
+    if ( @exists_nodes ) {
+        # remove file
+        my @r_uri = map { $_->{uri} } @exists_nodes;
+        if ( @r_uri ) {
+            debugf "enqueue:delete_file exists_nodes args:%s",\@r_uri;
+            $self->enqueue('delete_files', \@r_uri);
+        }
     }
 
     return $self->res_ok;
