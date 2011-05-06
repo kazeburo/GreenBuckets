@@ -300,7 +300,7 @@ sub delete_object_multi {
     $self->query($query, @fids, $args->{bucket_id});
 }
 
-sub stop_bucket {
+sub enable_bucket {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',

@@ -47,8 +47,8 @@ sub put_object {
     my $bucket_name = $c->args->{bucket};
     my ($filename) = @{$c->args->{splat}};
     my $content = $c->req->raw_body;
-
-    $self->model->put_object($bucket_name, $filename, \$content);
+    my $overwrite = ( lc $c->req->method eq 'put' ) ? 1 : 0;
+    $self->model->put_object($bucket_name, $filename, \$content, $overwrite);
 }
 
 sub get_bucket {
@@ -75,13 +75,19 @@ sub manip_bucket {
     if ( $args->{method} eq 'delete_bucket' ) {
         return $self->model->delete_bucket($bucket_name);
     }
-    if ( $args->{method} eq 'delete_object' ) {
+    elsif ( $args->{method} eq 'delete_object' ) {
         my @path;
         foreach my $ppath ( @{$args->{args}} ) {
             $ppath =~ s!^/!!;
             push @path, $ppath;
         }
         return $self->model->delete_object_multi($bucket_name, \@path);
+    }
+    elsif ( $args->{method} eq 'enable' ) {
+        return $self->model->enable_bucket($bucket_name, 1);
+    }
+    elsif ( $args->{method} eq 'disable' ) {
+        return $self->model->enable_bucket($bucket_name, 0);
     }
     else {
         return $c->res->server_error
@@ -112,7 +118,7 @@ sub build_app {
     $router->connect(
         '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-]+}/*',
         { action => 'put_object' },
-        { method => ['PUT'] }
+        { method => ['POST','PUT'] }
     );
 
     # delete

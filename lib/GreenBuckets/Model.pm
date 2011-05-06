@@ -114,6 +114,25 @@ sub get_bucket {
     return $self->res_ok;
 }
 
+sub enable_bucket {
+    my $self = shift;
+    my ($bucket_name, $enable) = @_;
+    my $master = $self->master;
+    my $bucket = $master->select_bucket(
+        name => $bucket_name
+    );
+    http_croak(404) unless $bucket; # 404
+    http_croak(503) if $bucket->{deleted}; # 404;
+
+    $master->enable_bucket(
+        bucket_id => $bucket->{id},
+        enabled => $enable
+    );
+
+    return $self->res_ok;
+}
+
+
 sub put_object {
     my $self = shift;
     my ($bucket_name, $filename, $content_ref, $overwrite_ok) = @_;

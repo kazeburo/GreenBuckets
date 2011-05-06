@@ -108,9 +108,9 @@ is_deeply $schema->select_object( bucket_id => $bucket1->{id}, fid => filename_i
 
 
 
-ok $schema->stop_bucket( bucket_id => 4 );
+ok $schema->enable_bucket( bucket_id => 4 );
 is_deeply $schema->select_bucket( name => 'test'), { id => 4, name => 'test', enabled => 0, deleted => 0 }; 
-ok $schema->stop_bucket( bucket_id => 4, enabled => 1 );
+ok $schema->enable_bucket( bucket_id => 4, enabled => 1 );
 is_deeply $schema->select_bucket( name => 'test'), { id => 4, name => 'test', enabled => 1, deleted => 0 }; 
 
 ok $schema->delete_bucket( bucket_id => 4 );
@@ -118,7 +118,7 @@ is_deeply $schema->select_bucket( name => 'test'), { id => 4, name => 'test', en
 ok $schema->delete_bucket( bucket_id => 4, deleted => 0 );
 is_deeply $schema->select_bucket( name => 'test'), { id => 4, name => 'test', enabled => 1, deleted => 0 }; 
 
-$schema->stop_bucket( bucket_id => 4 );
+$schema->enable_bucket( bucket_id => 4 );
 eval {
     $schema->insert_object(
         rid => 250,
@@ -128,7 +128,7 @@ eval {
     );
 };
 ok $@;
-$schema->stop_bucket( bucket_id => 4, enabled => 1 );
+$schema->enable_bucket( bucket_id => 4, enabled => 1 );
 
 $schema->delete_bucket( bucket_id => 4 );
 eval {
