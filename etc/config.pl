@@ -1,8 +1,8 @@
 return +{
-    # listen port of dispatcher
+    # listening port of dispatcher
     dispatcher_port => 5000,
 
-    # listen port of worker's status sever 
+    # listening port of worker's status server 
     jobqueue_worker_port => 5101,
 
     # dispatcher's basic authorization id/pass
@@ -17,7 +17,7 @@ return +{
     # fontend forwared proxy ip
     front_proxy => [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!],
 
-    # dispatcher's status access from
+    # dispatcher's status page acl
     dispatcher_status_access => [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!],
 
     # master/slave dbn
@@ -26,7 +26,6 @@ return +{
         ['dbi:mysql:greenbuckets;host=127.0.0.1','user','passwd'],
         ['dbi:mysql:greenbuckets;host=127.0.0.1','user','passwd']
     ],
-
 
     # replica number
     replica => 3,
