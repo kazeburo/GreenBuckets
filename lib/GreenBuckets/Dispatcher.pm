@@ -191,7 +191,7 @@ sub run {
 
     my $app = $self->build_app;
     $app = builder {
-        if ( $ENV{PLACK_ENV} eq "development" ) {
+        if ( $ENV{PLACK_ENV} && $ENV{PLACK_ENV} eq "development" ) {
             enable "StackTrace";
         }
         enable 'HTTPExceptions';
