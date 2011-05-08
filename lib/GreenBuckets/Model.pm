@@ -141,6 +141,7 @@ sub put_object {
     my $bucket = $master->retrieve_or_insert_bucket(
         name => $bucket_name
     );
+    http_croak(500, "Cannot retrieve bucket %s", $bucket_name) unless $bucket;
     http_croak(403) if ! $bucket->{enabled};
     http_croak(503) if $bucket->{deleted}; #XXX 
 
@@ -153,12 +154,14 @@ sub put_object {
         http_croak(409, "duplicated upload %s/%s", $bucket_name, $filename);
     }
 
+    my $object_id;
     my %fresh_nodes_args = (
         bucket_id => $bucket->{id}, 
         filename => $filename,
         having => $self->config->replica,
     );
     if ( @exists_nodes ) {
+        $object_id = $exists_nodes[0]->{object_id}; #objects.id
         $fresh_nodes_args{previous_rid} = $exists_nodes[0]->{rid}; # objects.rid
     }
 
@@ -196,17 +199,32 @@ sub put_object {
 
     my $sc = start_scope_container();
     $master = $self->master;
-    my $method =  @exists_nodes ? 'update_object' : 'insert_object';
-    $master->can($method)->($master, {
-        gid => $gid,
-        rid => $rid,
-        bucket_id => $bucket->{id},
-        filename => $filename,        
-    });
+    if ( @exists_nodes ) {
+        $self->master->update_object(
+            object_id => $object_id,
+            rid => $rid,
+            gid => $gid,
+        );
+    }
+    else {
+        $object_id = try {
+            $self->master->insert_object(
+                gid => $gid,
+                rid => $rid,
+                bucket_id => $bucket->{id},
+                filename => $filename,
+            );
+        }
+        catch {
+            http_croak(409, "duplicated upload found %s/%s", $bucket_name, $filename);
+        };
+        http_croak(500, "Cannot retrieve object_id %s/%s", $bucket_name, $filename) unless $object_id;
+    }
 
     if ( @replicate_to ) {
         $self->enqueue('replicate_object',{
             gid => $gid,
+            object_id => $object_id,
             bucket_id => $bucket->{id},
             filename => $filename,
             copied => \@copied,
@@ -281,8 +299,7 @@ sub jobq_replicate_object {
     $self->master->update_object( 
         gid => $gid,
         rid => $rid,
-        bucket_id => $args->{bucket_id},
-        filename => $args->{filename}
+        object_id => $args->{object_id},
     );
     $self->enqueue('delete_files', $args->{copied} );
 
@@ -302,18 +319,19 @@ sub delete_object {
     http_croak(403) if ! $bucket->{enabled}; # 403
     http_croak(404) if $bucket->{deleted}; # 404;
 
-    my @uri = $master->retrieve_object_nodes(
+    my @nodes = $master->retrieve_object_nodes(
         bucket_id => $bucket->{id},
         filename => $filename,
     );
 
+    http_croak(404) unless @nodes;
+
     $master->delete_object(
-        bucket_id => $bucket->{id}, 
-        filename => $filename
+        object_id => $nodes[0]->{object_id}
     );
 
     # remove file
-    my @r_uri = map { $_->{uri} } @uri;
+    my @r_uri = map { $_->{uri} } @nodes;
     if ( @r_uri ) {
         debugf "enqueue:delete_file args:%s",\@r_uri;
         $self->enqueue('delete_files', \@r_uri);
@@ -351,14 +369,16 @@ sub delete_object_multi {
             filename => \@spliced
         );
         
-        for my $fid ( @spliced ) {
-            warnf "not found, bucket_id:%d, fid:%d", $bucket->{id}, $fid
-                if ! exists $grouped_uri->{$fid};
+        for my $filename ( @spliced ) {
+            warnf "not found, bucket_id:%d, filename:%d",
+                $bucket->{id}, $filename,
+                if ! grep { $_->{filename} eq $filename } map { @{$_} } values %$grouped_uri;
         }
 
+        my @delete_ids = map { $_->[0]->{object_id} } values %$grouped_uri;
         $master->delete_object_multi(
             bucket_id => $bucket->{id}, 
-            filename => \@spliced,
+            filename => \@delete_ids,
         );
 
         my @r_uri = map { $_->{uri} } map { @{$_} } values %$grouped_uri;
@@ -404,15 +424,14 @@ sub jobq_delete_bucket {
         my @delete_uris;
         for my $object ( @$rows ) {
             debugf("delete object %s", $object);
-            my @uri = $master->retrieve_object_nodes(
+            my @nodes = $master->retrieve_object_nodes(
                 bucket_id => $bucket_id,
-                fid => $object->{fid},
+                filename => $object->{filename},
             );
             $master->delete_object(
-                bucket_id => $bucket_id,
-                fid => $object->{fid},
+                object_id => $nodes[0]->{object_id},
             );
-            push @delete_uris, map { $_->{uri} } @uri;
+            push @delete_uris, map { $_->{uri} } @nodes;
         }
         if ( @delete_uris ) {
             $self->enqueue('delete_files', \@delete_uris);

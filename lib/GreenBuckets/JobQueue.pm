@@ -11,7 +11,6 @@ use IO::Socket::INET;
 use Parallel::Prefork;
 use Parallel::Scoreboard;
 use GreenBuckets::Model;
-use Log::Minimal;
 use Term::ANSIColor qw//;
 use Time::HiRes qw//;
 use Mouse;

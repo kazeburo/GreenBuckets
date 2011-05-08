@@ -5,23 +5,17 @@ use warnings;
 use 5.10.0;
 use parent qw/Exporter/;
 use Encode;
-use Digest::FNV qw/fnv32a fnv64a/;
+use Digest::MurmurHash qw/murmur_hash/;
 use Digest::SHA qw/sha224_hex/;
 use GreenBuckets;
 use Data::Validator;
 
-our @EXPORT_OK = qw/filename_id sort_hash gen_rid object_path/;
+our @EXPORT_OK = qw/filename_id gen_rid object_path/;
 
 sub filename_id($) {
     my $filename = shift;
     $filename = Encode::encode_utf8($filename) if Encode::is_utf8($filename);
-    fnv64a($filename)->{longlong};
-}
-
-sub sort_hash($) {
-    my $filename = shift;
-    $filename = Encode::encode_utf8($filename) if Encode::is_utf8($filename);
-    fnv32a($filename);
+    murmur_hash($filename);
 }
 
 my $PID=$$;
@@ -35,16 +29,18 @@ sub gen_rid() {
 
 sub object_path {
     state $rule = Data::Validator->new(
+        filename  => 'Str',
         bucket_id => 'Natural',
-        fid => 'Natural',
-        rid      => 'Natural'
+        rid       => 'Natural'
     );
     my $args = $rule->validate(@_);
-
-    my $hash = sha224_hex($args->{bucket_id} . '/' . $args->{rid} . '/' . $args->{fid});
+    my $filename = $args->{filename};
+    $filename = Encode::encode_utf8($filename) if Encode::is_utf8($filename);
+    my $fid = filename_id($filename);
+    my $hash = sha224_hex($args->{bucket_id}.'/'.$args->{rid}.'/'.$filename);
     my $path = sprintf("%02d/%02d/%s",
-                       int( $args->{rid} % 10000 / 100),
-                       $args->{rid} % 100,
+                       int( $fid % 10000 / 100),
+                       $fid % 100,
                        $hash);
     $path;
 }

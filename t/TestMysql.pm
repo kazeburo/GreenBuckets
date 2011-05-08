@@ -50,16 +50,19 @@ sub setup {
     $dbh->query(q{INSERT INTO buckets SET name = ?}, 'bar');
     $dbh->query(q{INSERT INTO buckets SET name = ?}, 'baz');
 
-    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=250 ,gid=1},filename_id(1));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=251 ,gid=1},filename_id(2));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=252 ,gid=2},filename_id(3));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=253 ,gid=2},filename_id(4));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=2, fid=?, rid=254 ,gid=3},filename_id(5));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=2, fid=?, rid=255 ,gid=3},filename_id(6));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=3, fid=?, rid=256 ,gid=2},filename_id(7));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=3, fid=?, rid=257 ,gid=1},filename_id(8));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=258 ,gid=2},filename_id(9));
-    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=259 ,gid=1},filename_id(10));
+    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=250 ,gid=1, filename=?},filename_id(1), 1);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=251 ,gid=1, filename=?},filename_id(2), 2);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=252 ,gid=2, filename=?},filename_id(3), 3);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=253 ,gid=2, filename=?},filename_id(4), 4);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=2, fid=?, rid=254 ,gid=3, filename=?},filename_id(5), 5);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=2, fid=?, rid=255 ,gid=3, filename=?},filename_id(6), 6);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=3, fid=?, rid=256 ,gid=2, filename=?},filename_id(7), 7);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=3, fid=?, rid=257 ,gid=1, filename=?},filename_id(8), 8);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=258 ,gid=2, filename=?},filename_id(9), 9);
+    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=259 ,gid=1, filename=?},filename_id(10), 10);
+
+    $dbh->query(q{INSERT INTO objects SET bucket_id=2, fid=?, rid=260 ,gid=3, filename=?},filename_id(5), '5a');
+    $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=261 ,gid=2, filename=?},filename_id(9), '9a');
 
     $mysqld;
 }

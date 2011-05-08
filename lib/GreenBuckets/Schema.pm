@@ -7,8 +7,10 @@ use 5.10.0;
 use parent qw/DBIx::Sunny::Schema/;
 use List::Util qw/shuffle/;
 use GreenBuckets;
-use GreenBuckets::Util qw/filename_id sort_hash gen_rid object_path/;
+use GreenBuckets::Util qw/filename_id gen_rid object_path/;
+
 use Log::Minimal;
+local $Log::Minimal::AUTODUMP = 1;
 
 __PACKAGE__->select_row(
     'select_bucket',
@@ -20,14 +22,7 @@ __PACKAGE__->select_all(
     'select_object_nodes',
     fid => 'Natural',
     bucket_id => 'Natural',
-    q{SELECT objects.rid, nodes.* FROM objects left join nodes on objects.gid = nodes.gid  WHERE objects.fid = ? AND objects.bucket_id = ?}
-);
-
-__PACKAGE__->select_row(
-    'select_object',
-    fid => 'Natural',
-    bucket_id => 'Natural',
-    q{SELECT * FROM objects WHERE fid = ? AND bucket_id = ?}
+    q{SELECT objects.id as object_id, objects.rid, objects.filename, nodes.* FROM objects left join nodes on objects.gid = nodes.gid  WHERE objects.fid = ? AND objects.bucket_id = ?}
 );
 
 __PACKAGE__->select_all(
@@ -87,79 +82,73 @@ sub retrieve_object_nodes {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
-        'filename' => { isa =>'Str', xor => [qw/fid/] },
-        'fid' => 'Natural',
+        'filename' => 'Str',
     );
 
-    my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
+    my $fid = filename_id($args->{filename});
     my $nodes = $self->select_object_nodes(
         bucket_id => $args->{bucket_id},
         fid => $fid
     );
-    if ( ! @$nodes ) {
-        debugf "not found bucket_id:%s, fid:%s",
-            $args->{bucket_id}, $fid;
+    my @nodes = grep { $_->{filename} eq $args->{filename} } @$nodes;
+    if ( ! @nodes ) {
         return;
-    }
+    }        
 
-    my $rid = $nodes->[0]->{rid};
     my $object_path = object_path(
-        bucket_id => $args->{bucket_id}, 
-        fid => $fid,
-        rid => $rid
+        filename => $args->{filename},
+        bucket_id => $args->{bucket_id},
+        rid => $nodes[0]->{rid}
     );
-    my @uris =  sort {
-        sort_hash(join "/", $a->{id},$object_path) <=> sort_hash(join "/", $b->{id},$object_path)
+    @nodes =  sort {
+        filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
     } map {
         my $node = $_->{node};
         $node =~ s!/$!!;
         { uri => $node . '/' . $object_path, %{$_} }
-    } @$nodes;
-    @uris;
+    } @nodes;
+    @nodes;
 }
 
 sub retrieve_object_nodes_multi {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
-        'filename' => { isa =>'ArrayRef[Str]', xor => [qw/fid/] },
-        'fid' => 'ArrayRef[Natural]',
+        'filename' => 'ArrayRef[Str]',
     );
 
-   my @fids = exists $args->{filename}
-       ? map { filename_id($_) } @{$args->{filename}}
-       : @{$args->{fid}};
+   my %filenames = map {
+       $_ => filename_id($_)
+   } @{$args->{filename}};
+    my $query = join ",", map { "?" } keys %filenames;
+    $query = qq{SELECT objects.id as object_id, objects.fid, objects.bucket_id, objects.rid, objects.filename, nodes.* FROM objects LEFT JOIN nodes ON nodes.gid = objects.gid WHERE objects.fid IN ($query) AND objects.bucket_id = ?};
+    my $rows = $self->select_all($query, values %filenames, $args->{bucket_id});
 
-    my $query = join ",", map { "?" } @fids;
-    $query = qq{SELECT objects.*, nodes.* FROM objects LEFT JOIN nodes ON nodes.gid = objects.gid WHERE objects.fid IN ($query) AND objects.bucket_id = ?};
-    my $rows = $self->select_all($query, @fids, $args->{bucket_id});
-
-    my %fids;
+    my %objects;
     for my $row ( @$rows ) {
-        $fids{$row->{fid}} ||= [];
-        push @{$fids{$row->{fid}}}, $row;
+        next if ! exists $filenames{$row->{filename}};
+        $objects{$row->{object_id}} ||= [];
+        push @{$objects{$row->{object_id}}}, $row;
     }
 
     my %result;
-    for my $fid ( @fids ) {
-        next if ( ! exists $fids{$fid} );
-        my $nodes = $fids{$fid};
-        
-        my $rid = $nodes->[0]->{rid};
+    for my $object_id ( keys %objects ) {
+
+        my $nodes = $objects{$object_id};
         my $object_path = object_path(
-            bucket_id => $args->{bucket_id}, 
-            fid => $fid,
-            rid => $rid
+            filename => $nodes->[0]->{filename},
+            bucket_id => $nodes->[0]->{bucket_id},
+            rid => $nodes->[0]->{rid},
         );
         my @uris =  sort {
-            sort_hash(join "/", $a->{id},$object_path) <=> sort_hash(join "/", $b->{id},$object_path)
+            filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
         } map {
             my $node = $_->{node};
             $node =~ s!/$!!;
             { uri => $node . '/' . $object_path, %{$_} }
         } @$nodes;
 
-        $result{$fid} = \@uris;
+        $result{$object_id} = \@uris;
     }
     \%result;
 }
@@ -168,8 +157,7 @@ sub retrieve_fresh_nodes {
     my $self = shift;
     my $args = $self->args(
         'bucket_id'  => 'Natural',
-        'filename' => { isa =>'Str', xor => [qw/fid/] },
-        'fid' => 'Natural',
+        'filename' => 'Str',
         'having' => 'Int',
         'previous_rid' => { isa => 'Natural', optional => 1 }
     );
@@ -183,10 +171,10 @@ sub retrieve_fresh_nodes {
             $rid = gen_rid();
         }
     }
-    my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
+
     my $object_path = object_path(
         bucket_id => $args->{bucket_id},
-        fid => $fid,
+        filename => $args->{filename},
         rid => $rid
     );
     for my $node ( @$nodes ) {
@@ -201,7 +189,7 @@ sub retrieve_fresh_nodes {
 
     for my $gid ( keys %group ) {
         my @sort = map { $_->{uri}} sort {
-            sort_hash(join "/", $a->{id},$object_path) <=> sort_hash(join "/", $b->{id},$object_path)
+            filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
         } @{$group{$gid}};
         $group{$gid} = \@sort;
     }
@@ -252,15 +240,28 @@ sub insert_object {
         'bucket_id'  => 'Natural',
         'filename' => 'Str',
     );
-    
-    $self->query(
-        q{INSERT INTO objects (fid, bucket_id, rid, gid) VALUES (?,?,?,?)},
-        filename_id($args->{filename}),
-        $args->{bucket_id},
-        $args->{rid},
-        $args->{gid},
-    );
-    1;
+
+    my $object_id;
+    {
+        my $txn = $self->txn_scope;
+        my @exists = $self->retrieve_object_nodes(
+            bucket_id => $args->{bucket_id},
+            filename => $args->{filename},
+        );
+        die sprintf "duplicated entry bucket_id:%s, filename:%s",
+            $args->{bucket_id}, $args->{filename} if @exists;
+        $self->query(
+            q{INSERT INTO objects (fid, bucket_id, rid, gid, filename) VALUES (?,?,?,?,?)},
+            filename_id($args->{filename}),
+            $args->{bucket_id},
+            $args->{rid},
+            $args->{gid},
+            $args->{filename}
+        );
+        $object_id = $self->last_insert_id();
+        $txn->commit;
+    }
+    $object_id;
 }
 
 sub update_object {
@@ -268,53 +269,40 @@ sub update_object {
     my $args = $self->args(
         'rid'  => 'Natural',
         'gid'  => 'Natural',
-        'bucket_id'  => 'Natural',
-        'filename' => 'Str',
+        'object_id'  => 'Natural',
     );
     
     $self->query(
-        q{UPDATE objects SET rid =?, gid=? WHERE fid =? AND bucket_id =?},
+        q{UPDATE objects SET rid =?, gid=? WHERE id =?},
         $args->{rid},
         $args->{gid},
-        filename_id($args->{filename}),
-        $args->{bucket_id},
+        $args->{object_id},
     );
 
     1;
 }
 
-
+# XXX
 sub delete_object {
     my $self = shift;
     my $args = $self->args(
-        'bucket_id'  => 'Natural',
-        'filename' => { isa => 'Str', xor => [qw/fid/] },
-        'fid' => 'Natural',
+        object_id => 'Natural',
     );
-
-    my $fid = exists $args->{filename} ? filename_id($args->{filename}) : $args->{fid};
     $self->query(
-        q{DELETE FROM objects WHERE fid = ? AND bucket_id = ? LIMIT 1},
-        $fid,
-        $args->{bucket_id},
+        q{DELETE FROM objects WHERE id = ?},
+        $args->{object_id},
     );
 }
 
 sub delete_object_multi {
     my $self = shift;
     my $args = $self->args(
-        'bucket_id'  => 'Natural',
-        'filename' => { isa =>'ArrayRef[Str]', xor => [qw/fid/] },
-        'fid' => 'ArrayRef[Natural]',
+        'object_id' => 'ArrayRef[Natural]'
     );
 
-   my @fids = exists $args->{filename}
-       ? map { filename_id($_) } @{$args->{filename}}
-       : @{$args->{fid}};
-
-    my $query = join ",", map { "?" } @fids;
-    $query = qq{DELETE FROM objects WHERE fid IN ($query) AND bucket_id = ?};
-    $self->query($query, @fids, $args->{bucket_id});
+    my $query = join ",", map { "?" } @{$args->{object_id}};
+    $query = qq{DELETE FROM objects WHERE id IN ($query)};
+    $self->query($query, @{$args->{object_id}} );
 }
 
 sub retrieve_queue {

@@ -50,11 +50,13 @@ CREATE TABLE buckets (
 
 @@ objects
 CREATE TABLE objects (
-    fid BIGINT UNSIGNED NOT NULL,
+    id BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    fid INT UNSIGNED NOT NULL,
     bucket_id MEDIUMINT UNSIGNED NOT NULL,
     rid SMALLINT UNSIGNED NOT NULL,
     gid SMALLINT UNSIGNED NOT NULL,
-    PRIMARY KEY(fid, bucket_id),
+    filename VARCHAR(1024),
+    INDEX (fid, bucket_id),
     INDEX (bucket_id, fid)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 

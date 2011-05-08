@@ -23,9 +23,12 @@ my $nodes = $schema->select_object_nodes(
     bucket_id => 1
 );
 is_deeply $nodes, [
-    { rid => 250, gid => 1, id => 1, node => 'http://192.168.0.1/', can_read => 1, is_fresh => 1 },
-    { rid => 250, gid => 1, id => 2, node => 'http://192.168.0.2/', can_read => 1, is_fresh => 1 },
-    { rid => 250, gid => 1, id => 3, node => 'http://192.168.0.3/', can_read => 1, is_fresh => 1 },
+    { object_id =>1, filename => 1, rid => 250, gid => 1, 
+      id => 1, node => 'http://192.168.0.1/', can_read => 1, is_fresh => 1 },
+    { object_id =>1, filename => 1, rid => 250, gid => 1,
+      id => 2, node => 'http://192.168.0.2/', can_read => 1, is_fresh => 1 },
+    { object_id =>1,  filename => 1, rid => 250, gid => 1,
+      id => 3, node => 'http://192.168.0.3/', can_read => 1, is_fresh => 1 },
 ];
 
 my $nodes2 = $schema->select_object_nodes(
@@ -33,15 +36,21 @@ my $nodes2 = $schema->select_object_nodes(
     bucket_id => 2
 );
 is_deeply $nodes2, [
-    { rid => 254, gid => 3, id => 7, node => 'http://192.168.0.7/', can_read => 1, is_fresh => 0 },
-    { rid => 254, gid => 3, id => 8, node => 'http://192.168.0.8/', can_read => 1, is_fresh => 1 },
-    { rid => 254, gid => 3, id => 9, node => 'http://192.168.0.9/', can_read => 1, is_fresh => 1 },
+    { object_id =>5, filename => 5, rid => 254, gid => 3, 
+      id => 7, node => 'http://192.168.0.7/', can_read => 1, is_fresh => 0 },
+    { object_id =>5, filename => 5, rid => 254, gid => 3, 
+      id => 8, node => 'http://192.168.0.8/', can_read => 1, is_fresh => 1 },
+    { object_id =>5, filename => 5, rid => 254, gid => 3, 
+      id => 9, node => 'http://192.168.0.9/', can_read => 1, is_fresh => 1 },
+#conflict objects
+    { object_id =>11, filename => '5a', rid => 260, gid => 3, 
+      id => 7, node => 'http://192.168.0.7/', can_read => 1, is_fresh => 0 },
+    { object_id =>11, filename => '5a', rid => 260, gid => 3, 
+      id => 8, node => 'http://192.168.0.8/', can_read => 1, is_fresh => 1 },
+    { object_id =>11, filename => '5a', rid => 260, gid => 3, 
+      id => 9, node => 'http://192.168.0.9/', can_read => 1, is_fresh => 1 },
 ];
 
-is_deeply $schema->select_object( bucket_id => 1, fid => filename_id(3) ),
-    { fid => filename_id(3), bucket_id =>1, rid => 252, gid => 2 };
-is_deeply $schema->select_object( fid => filename_id(5), bucket_id => 2 ),
-    { fid => filename_id(5), bucket_id =>2, rid => 254, gid => 3 };
 
 is_deeply $schema->select_fresh_nodes(having=>3), [
     { id => 1, gid => 1, node => 'http://192.168.0.1/', can_read => 1, is_fresh => 1 },
@@ -54,16 +63,38 @@ is_deeply $schema->select_fresh_nodes(having=>3), [
 
 my @nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 3 );
 is( scalar @nodes, 3);
+is( $nodes[0]->{object_id}, 3);
 is( $nodes[0]->{gid}, 2);
 ok( $nodes[0]->{uri} );
 
-my $nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 1, filename => [1,2] );
-ok( $nodes_multi->{filename_id(1)} );
-ok( $nodes_multi->{filename_id(2)} );
-is( scalar @{$nodes_multi->{filename_id(1)}}, 3); 
-is( scalar @{$nodes_multi->{filename_id(2)}}, 3);
-is( $nodes_multi->{filename_id(1)}->[0]->{gid}, 1 ); 
-ok( $nodes_multi->{filename_id(1)}->[0]->{uri} );
+@nodes = $schema->retrieve_object_nodes( bucket_id => 2, filename => 5 );
+is( scalar @nodes, 3);
+is( $nodes[0]->{object_id}, 5);
+is( $nodes[0]->{gid}, 3);
+ok( $nodes[0]->{uri} );
+
+
+@nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 9 );
+is( scalar @nodes, 3);
+is( $nodes[0]->{object_id}, 9);
+is( $nodes[0]->{gid}, 2);
+ok( $nodes[0]->{uri} );
+
+my $nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 1, filename => [1,9,100] );
+ok( $nodes_multi->{1} );
+ok( $nodes_multi->{9} );
+ok( !$nodes_multi->{100} );
+use Log::Minimal;
+local $Log::Minimal::AUTODUMP = 1;
+is( scalar @{$nodes_multi->{1}}, 3);
+is( scalar @{$nodes_multi->{9}}, 3);
+is( $nodes_multi->{1}->[0]->{object_id}, 1 ); 
+is( $nodes_multi->{1}->[0]->{gid}, 1 ); 
+ok( $nodes_multi->{1}->[0]->{uri} );
+is( $nodes_multi->{9}->[0]->{object_id}, 9 ); 
+is( $nodes_multi->{9}->[0]->{gid}, 2 ); 
+ok( $nodes_multi->{9}->[0]->{uri} );
+
 
 my @f_nodes = $schema->retrieve_fresh_nodes( having => 3, bucket_id => 1, filename => 3 );
 is( scalar @f_nodes, 2 );
@@ -101,12 +132,19 @@ ok $schema->insert_object(
     filename => 3,
 );
 
-is_deeply $schema->select_object( bucket_id => $bucket1->{id}, fid => filename_id(1) ),
-    { fid => filename_id(1), bucket_id => 4, rid => 250, gid => 1 };
-is_deeply $schema->select_object( bucket_id => $bucket1->{id}, fid => filename_id(2) ),
-    { fid => filename_id(2), bucket_id => 4, rid => 250, gid => 1 };
+eval {
+    $schema->insert_object(
+        rid => 250,
+        gid => 1,
+        bucket_id => 4,
+        filename => 3,
+    );
+};
+ok($@);
 
-
+ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 1 );
+ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 2 );
+ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 3 );
 
 ok $schema->enable_bucket( bucket_id => 4 );
 is_deeply $schema->select_bucket( name => 'test'), { id => 4, name => 'test', enabled => 0, deleted => 0 }; 
@@ -142,12 +180,15 @@ eval {
 ok $@;
 $schema->delete_bucket( bucket_id => 4, deleted => 0 );
 
-ok $schema->delete_object( bucket_id => 4, filename => 2 );
-ok ! $schema->select_object( bucket_id => 4, fid => filename_id(2) );
+@nodes = $schema->retrieve_object_nodes( bucket_id => 4, filename => 2 );
+ok $schema->delete_object( object_id => $nodes[0]->{object_id} );
+ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 2 );
 
-ok $schema->delete_object_multi( bucket_id => 4, filename => [1,3] );
-ok ! $schema->select_object( bucket_id => 4, fid => filename_id(1) );
-ok ! $schema->select_object( bucket_id => 4, fid => filename_id(3) );
+$nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 4, filename => [1,3] );
+
+ok $schema->delete_object_multi( object_id => [ map { $_->[0]->{object_id} } values %$nodes_multi] );
+ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 1 );
+ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 3 );
 
 subtest 'queue' => sub {
     ok ! $schema->retrieve_queue;

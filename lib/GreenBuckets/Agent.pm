@@ -71,7 +71,7 @@ sub delete {
 
     for my $url ( @urls ) {
         my $res = $self->furl->delete( $url );
-        debugf("delete: %s / %s", $url, $res->status_line);
+        warnf("failed delete: %s / %s", $url, $res->status_line) if ! $res->is_success;
     }
     1;
 }
