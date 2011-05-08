@@ -60,7 +60,8 @@ __PACKAGE__->query(
     'rid'  => 'Natural',
     'gid'  => 'Natural',
     'object_id'  => 'Natural',
-    q{UPDATE objects SET rid =?, gid=? WHERE id =?},
+    'prev_rid' => 'Natural',
+    q{UPDATE objects SET rid =?, gid=? WHERE id =? AND rid = ?},
 );
 
 __PACKAGE__->query(
@@ -255,12 +256,13 @@ sub insert_object {
     my $object_id;
     {
         my $txn = $self->txn_scope;
-        my @exists = $self->retrieve_object_nodes(
-            bucket_id => $args->{bucket_id},
-            filename => $args->{filename},
+        my $rows = $self->select_all(
+            q{SELECT * FROM objects WHERE bucket_id =? AND fid = ?},
+            $args->{bucket_id},
+            filename_id($args->{filename}),
         );
         die sprintf "duplicated entry bucket_id:%s, filename:%s",
-            $args->{bucket_id}, $args->{filename} if @exists;
+            $args->{bucket_id}, $args->{filename} if grep { $_->{filename} eq $args->{filename} } @$rows;
         $self->query(
             q{INSERT INTO objects (fid, bucket_id, rid, gid, filename) VALUES (?,?,?,?,?)},
             filename_id($args->{filename}),

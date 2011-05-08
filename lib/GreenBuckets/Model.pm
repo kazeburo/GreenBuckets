@@ -199,11 +199,13 @@ sub put_object {
 
     my $sc = start_scope_container();
     if ( @exists_nodes ) {
-        $self->master->update_object(
+        my $result = $self->master->update_object(
             object_id => $object_id,
             rid => $rid,
             gid => $gid,
+            prev_rid => $exists_nodes[0]->{rid}
         );
+        http_croak(409, "duplicated upload found %s/%s", $bucket_name, $filename) unless $result;
     }
     else {
         $object_id = try {
@@ -222,6 +224,7 @@ sub put_object {
 
     if ( @replicate_to ) {
         $self->enqueue('replicate_object',{
+            rid => $rid,
             gid => $gid,
             object_id => $object_id,
             bucket_id => $bucket->{id},
@@ -295,11 +298,14 @@ sub jobq_replicate_object {
         $args->{copied}, $gid;
 
     my $sc = start_scope_container();
-    $self->master->update_object( 
+    $result = $self->master->update_object( 
         gid => $gid,
         rid => $rid,
         object_id => $args->{object_id},
+        prev_rid => $args->{rid},
     );
+    warnf "update failed maybe other worker updated: new_gid:%s, new_rid:%s %s", 
+        $gid, $rid, $args unless $result;
     $self->enqueue('delete_files', $args->{copied} );
 
     $job->done(1);
