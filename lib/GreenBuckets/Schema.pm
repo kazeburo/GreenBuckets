@@ -9,9 +9,6 @@ use List::Util qw/shuffle/;
 use GreenBuckets;
 use GreenBuckets::Util qw/filename_id gen_rid object_path/;
 
-use Log::Minimal;
-local $Log::Minimal::AUTODUMP = 1;
-
 __PACKAGE__->select_row(
     'select_bucket',
     name => 'Str',
