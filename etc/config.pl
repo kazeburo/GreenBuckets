@@ -35,6 +35,6 @@ return +{
     # numbe of JobQueue worker
     jobqueue_max_worker => 5,
 
-#    agent_class => "GreenBuckets::Agent::Dummy",
+    agent_class => "GreenBuckets::Agent::Dummy",
 };
 

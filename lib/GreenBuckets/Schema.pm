@@ -58,6 +58,20 @@ __PACKAGE__->query(
     "DELETE FROM buckets WHERE id = ?"
 );
 
+__PACKAGE__->query(
+    'update_object',
+    'rid'  => 'Natural',
+    'gid'  => 'Natural',
+    'object_id'  => 'Natural',
+    q{UPDATE objects SET rid =?, gid=? WHERE id =?},
+);
+
+__PACKAGE__->query(
+    'delete_object',
+    'object_id' => 'Natural',
+    q{DELETE FROM objects WHERE id = ?}
+);
+
 __PACKAGE__->select_all(
     'select_queue',
     limit => { isa =>'Natural', default => 10 },
@@ -264,35 +278,6 @@ sub insert_object {
     $object_id;
 }
 
-sub update_object {
-    my $self = shift;
-    my $args = $self->args(
-        'rid'  => 'Natural',
-        'gid'  => 'Natural',
-        'object_id'  => 'Natural',
-    );
-    
-    $self->query(
-        q{UPDATE objects SET rid =?, gid=? WHERE id =?},
-        $args->{rid},
-        $args->{gid},
-        $args->{object_id},
-    );
-
-    1;
-}
-
-# XXX
-sub delete_object {
-    my $self = shift;
-    my $args = $self->args(
-        object_id => 'Natural',
-    );
-    $self->query(
-        q{DELETE FROM objects WHERE id = ?},
-        $args->{object_id},
-    );
-}
 
 sub delete_object_multi {
     my $self = shift;

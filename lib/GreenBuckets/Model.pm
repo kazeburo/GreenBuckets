@@ -198,7 +198,6 @@ sub put_object {
     http_croak(500,"Upload failed %s/%s", $bucket_name, $filename) if !$gid;
 
     my $sc = start_scope_container();
-    $master = $self->master;
     if ( @exists_nodes ) {
         $self->master->update_object(
             object_id => $object_id,

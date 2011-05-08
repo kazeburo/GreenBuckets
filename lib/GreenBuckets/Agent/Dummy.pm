@@ -24,7 +24,7 @@ sub put {
     my $urls = shift;
     my $content_ref = shift;
     my @urls = ref $urls ? @$urls : ($urls);
-    return if map { m!^http://127\.0\.0\.1/4! } @urls;
+    return if map { m!^http://127\.0\.0\.1:8080/4! } @urls;
     debugf "method:put args:%s", \@urls;
     1;
 }
