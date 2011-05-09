@@ -6,6 +6,7 @@ use utf8;
 use 5.10.0;
 use parent qw/DBIx::Sunny::Schema/;
 use List::Util qw/shuffle/;
+use Digest::SHA qw/sha224_hex/;
 use GreenBuckets;
 use GreenBuckets::Util qw/filename_id gen_rid object_path/;
 
@@ -88,6 +89,18 @@ __PACKAGE__->query(
     args => { isa =>'Str' },
     try => { isa => 'Natural', default => 0 },
     q{INSERT INTO jobqueue (func, args, try) VALUES (?,?,?) },
+);
+
+__PACKAGE__->query(
+    'release_putlock',
+    lock => 'Str',
+    q{DELETE FROM putlock WHERE fdigest = ?}
+);
+
+__PACKAGE__->query(
+    'cleanup_putlock',
+    min => 'Natural',
+    q{DELETE FROM putlock WHERE ctime < DATE_SUB(NOW(), INTERVAL ? MINUTE)}
 );
 
 sub retrieve_object_nodes {
@@ -308,6 +321,25 @@ sub retrieve_queue {
     $queue;
 }
 
+sub putlock {
+   my $self = shift;
+   my $args = $self->args(
+       'bucket_id'  => 'Natural',
+       'filename' => 'Str',
+   );
+   my $filename = $args->{filename};
+   $filename = Encode::encode_utf8($filename) if Encode::is_utf8($filename);
+   my $fdigest = sha224_hex($args->{bucket_id}.'/'.$filename);
+
+   $self->cleanup_putlock( min => 5 ) if int(rand(5)) == 0; #XXX
+   my $rows = $self->query(
+       q{INSERT INTO putlock (fdigest) VALUES (?)},
+       $fdigest
+   );
+
+   return $fdigest if $rows;
+   return;
+}
 
 1;
 

@@ -25,7 +25,7 @@ subtype 'Flag'
 no Mouse::Util::TypeConstraints;
 
 our $VERSION = 0.01;
-our @TABLES = qw/nodes buckets objects jobqueue/;
+our @TABLES = qw/nodes buckets objects jobqueue putlock/;
 
 __PACKAGE__->meta->make_immutable();
 1;
@@ -68,6 +68,12 @@ CREATE TABLE jobqueue (
     try SMALLINT UNSIGNED NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 
+@@ putlock
+CREATE TABLE putlock (
+    fdigest VARBINARY(56) NOT NULL PRIMARY KEY,
+    ctime TIMESTAMP NOT NULL,
+    KEY (ctime)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
 
 @@ config
 return +{

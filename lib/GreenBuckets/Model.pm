@@ -145,6 +145,17 @@ sub put_object {
     http_croak(403) if ! $bucket->{enabled};
     http_croak(503) if $bucket->{deleted}; #XXX 
 
+    my $lock = $master->putlock(
+        bucket_id => $bucket->{id},
+        filename => $filename        
+    );
+    http_croak(423) if ! $lock;
+
+    my $locked = GreenBuckets::Model::PutLock->new(
+        model => $self,
+        lock => $lock
+    );
+    
     my @exists_nodes = $master->retrieve_object_nodes(
         bucket_id => $bucket->{id},
         filename => $filename
@@ -525,5 +536,35 @@ has 'done' => (
 
 __PACKAGE__->meta->make_immutable();
 
+1;
+
+package GreenBuckets::Model::PutLock;
+
+use strict;
+use warnings;
+use Mouse;
+
+has 'model' => (
+    is => 'ro',
+    isa => 'GreenBuckets::Model',
+    required => 1,
+);
+
+has 'lock' => (
+    is => 'ro',
+    isa => 'Str',
+    required => 1,
+);
+
+sub DEMOLISH {
+    my $self = shift;
+    eval {
+        $self->model->master->release_putlock(
+            lock => $self->lock
+        );
+    };
+}
+
+__PACKAGE__->meta->make_immutable();
 1;
 
