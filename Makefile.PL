@@ -17,7 +17,7 @@ requires 'List::Util';
 requires 'HTTP::Exception';
 requires 'Data::Validator';
 requires 'parent';
-requires 'Digest::FNV';
+requires 'Digest::MurmurHash';
 requires 'Digest::SHA';
 requires 'Hash::MultiValue';
 requires 'App::CLI';
