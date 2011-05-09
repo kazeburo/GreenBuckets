@@ -1,9 +1,3 @@
-use Config;
-BEGIN {
-    warn "A 64-bit Perl is required" && exit
-        unless $Config{use64bitint};
-}
-
 use inc::Module::Install;
 name 'GreenBuckets';
 all_from 'lib/GreenBuckets.pm';
@@ -14,7 +8,7 @@ requires 'DBIx::Sunny', 0.06;
 requires 'DBD::mysql';
 requires 'Furl';
 requires 'Net::DNS::Lite';
-requires 'Log::Minimal', 0.05;
+requires 'Log::Minimal', 0.06;
 requires 'MIME::Base64';
 requires 'Class::Accessor::Lite', 0.05;
 requires 'Scope::Container';
@@ -38,7 +32,7 @@ requires 'Parallel::Prefork';
 requires 'Parallel::Scoreboard';
 requires 'Try::Tiny', 0.09;
 requires 'Starlet';
-requires 'Plack::Middleware::Log::Minimal', 0.02;
+requires 'Plack::Middleware::Log::Minimal', 0.03;
 requires 'Plack::Middleware::ServerStatus::Lite';
 requires 'JSON';
 requires 'JSON::XS';

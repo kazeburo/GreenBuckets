@@ -212,6 +212,7 @@ sub put_object {
 
     my $sc = start_scope_container();
     if ( @exists_nodes ) {
+        debugf "update objects %s", $exists_nodes[0]; 
         my $result = $self->master->update_object(
             object_id => $object_id,
             rid => $rid,

@@ -14,6 +14,7 @@ use GreenBuckets::Dispatcher::Request;
 use GreenBuckets::Dispatcher::Response;
 use GreenBuckets::Dispatcher::Connection;
 use GreenBuckets::Model;
+use Try::Tiny;
 use Log::Minimal;
 use JSON;
 use Mouse;
@@ -149,7 +150,12 @@ sub build_app {
             stash => {},
         });
 
-        if ( my $p = $router->match($env) ) {
+        my $p = try {
+            local $env->{PATH_INFO} = Encode::decode_utf8($env->{PATH_INFO},1);
+            $router->match($env)
+        };
+
+        if ( $p ) {
             my $action = delete $p->{action};
             my $code = $self->can($action);
             croak('uri match but no action found') unless $code;

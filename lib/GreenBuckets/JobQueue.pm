@@ -5,6 +5,7 @@ use warnings;
 use utf8;
 use Carp qw/croak/;
 use File::Temp qw();
+use Encode;
 use Log::Minimal;
 use Scope::Container;
 use IO::Socket::INET;
@@ -69,6 +70,7 @@ sub build_logger {
     return sub {
         my ( $time, $type, $message, $trace) = @_;
         my $raw_message = $message;
+        $message = Encode::encode_utf8($message) if Encode::is_utf8($message);
         if ( $ENV{PLACK_ENV} && $ENV{PLACK_ENV} eq 'development' ) {
              $message = Term::ANSIColor::color($DEFAULT_COLOR->{lc($type)}->{text}) 
                  . $message . Term::ANSIColor::color("reset")
