@@ -10,6 +10,7 @@ use Plack::Builder::Conditionals -prefix => 'c';
 use Plack::Loader;
 use Router::Simple;
 use File::Temp;
+use GreenBuckets::Exception;
 use GreenBuckets::Dispatcher::Request;
 use GreenBuckets::Dispatcher::Response;
 use GreenBuckets::Dispatcher::Connection;
@@ -151,8 +152,11 @@ sub build_app {
         });
 
         my $p = try {
-            local $env->{PATH_INFO} = Encode::decode_utf8($env->{PATH_INFO},1);
+            local $env->{PATH_INFO} = Encode::decode_utf8( $env->{PATH_INFO}, 1 );
             $router->match($env)
+        }
+        catch {
+            http_croak(400, $_);
         };
 
         if ( $p ) {
