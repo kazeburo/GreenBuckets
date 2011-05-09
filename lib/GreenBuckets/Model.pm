@@ -145,10 +145,12 @@ sub put_object {
     http_croak(403) if ! $bucket->{enabled};
     http_croak(503) if $bucket->{deleted}; #XXX 
 
-    my $lock = $master->putlock(
-        bucket_id => $bucket->{id},
-        filename => $filename        
-    );
+    my $lock = try {
+        $master->putlock(
+            bucket_id => $bucket->{id},
+            filename => $filename        
+        );
+    };
     http_croak(423) if ! $lock;
 
     my $locked = GreenBuckets::Model::PutLock->new(
