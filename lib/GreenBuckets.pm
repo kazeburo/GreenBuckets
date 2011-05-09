@@ -57,7 +57,7 @@ CREATE TABLE objects (
     gid SMALLINT UNSIGNED NOT NULL,
     filename VARCHAR(1024),
     INDEX (fid, bucket_id),
-    INDEX (bucket_id, fid)
+    INDEX (bucket_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 
 @@ jobqueue
