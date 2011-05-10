@@ -33,7 +33,7 @@ __PACKAGE__->select_all(
 __PACKAGE__->select_all(
     'select_fresh_nodes',
     having => 'Natural',
-    q{SELECT * FROM nodes WHERE gid IN (SELECT gid FROM nodes WHERE can_read=1 AND is_fresh=1 GROUP BY gid HAVING COUNT(gid) = ?)}
+    q{SELECT * FROM nodes WHERE gid IN (SELECT gid FROM nodes WHERE can_read=1 AND can_write=1 GROUP BY gid HAVING COUNT(gid) = ?)}
 );
 
 __PACKAGE__->query(
