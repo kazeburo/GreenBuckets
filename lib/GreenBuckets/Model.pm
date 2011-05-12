@@ -396,8 +396,7 @@ sub delete_object_multi {
 
         my @delete_ids = map { $_->[0]->{object_id} } values %$grouped_uri;
         $master->delete_object_multi(
-            bucket_id => $bucket->{id}, 
-            filename => \@delete_ids,
+            object_id => \@delete_ids,
         );
 
         my @r_uri = map { $_->{uri} } map { @{$_} } values %$grouped_uri;

@@ -71,6 +71,12 @@ __PACKAGE__->query(
     q{DELETE FROM objects WHERE id = ?}
 );
 
+__PACKAGE__->query(
+    'delete_object_multi',
+    'object_id' => 'ArrayRef[Natural]',
+    q{DELETE FROM objects WHERE id IN (?)}
+);
+
 __PACKAGE__->select_all(
     'select_queue',
     limit => { isa =>'Natural', default => 10 },
@@ -290,17 +296,6 @@ sub insert_object {
     $object_id;
 }
 
-
-sub delete_object_multi {
-    my $self = shift;
-    my $args = $self->args(
-        'object_id' => 'ArrayRef[Natural]'
-    );
-
-    my $query = join ",", map { "?" } @{$args->{object_id}};
-    $query = qq{DELETE FROM objects WHERE id IN ($query)};
-    $self->query($query, @{$args->{object_id}} );
-}
 
 sub retrieve_queue {
     my $self = shift;
