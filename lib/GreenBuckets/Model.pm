@@ -87,7 +87,7 @@ sub get_object {
     my @r_uri = map { $_->{uri} } grep { $_->{can_read} && !$_->{remote} } @uri;
     http_croak(500, "all storage cannot read %s", \@uri) if ! @r_uri;
 
-    my $res = $self->agent->get(\@r_uri);
+    my ($res,$fh) = $self->agent->get(\@r_uri);
     http_croak(500, "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line)
         if !$res->is_success; 
 
@@ -96,7 +96,7 @@ sub get_object {
         $r_res->header($header, $res->header($header));
     }
     $r_res->content_type( Plack::MIME->mime_type($filename) || 'text/plain' );
-    $r_res->body($res->body);
+    $r_res->body($fh);
     $r_res;
 }
 
@@ -135,7 +135,7 @@ sub enable_bucket {
 
 sub put_object {
     my $self = shift;
-    my ($bucket_name, $filename, $content_ref, $overwrite_ok) = @_;
+    my ($bucket_name, $filename, $content_fh, $overwrite_ok) = @_;
 
     my $master = $self->master;
     my $bucket = $master->retrieve_or_insert_bucket(
@@ -190,7 +190,7 @@ sub put_object {
         my @nodes = @{$f_node->{uri}};
         my @first_nodes = splice @nodes, 0, 2;
         
-        my $result = $self->agent->put(\@first_nodes, $content_ref);
+        my $result = $self->agent->put(\@first_nodes, $content_fh);
 
         if ( $result ) {
             infof "%s/%s was uploaded to gid:%s first_nodes:%s", 
@@ -265,13 +265,12 @@ sub jobq_replicate_object {
     my $job = shift;
     my $args = $job->args;
 
-    my $res = $self->agent->get($args->{copied});
+    my ($res,$fh) = $self->agent->get($args->{copied});
     die sprintf("cannot get %s,  status_line:",
                 $args->{copied}, $res->status_line) if !$res->is_success;
-    my $body = $res->content;
 
     debugf 'replicate %s to %s', $args->{copied}, $args->{replicate_to};
-    my $result = $self->agent->put($args->{replicate_to}, \$body);
+    my $result = $self->agent->put($args->{replicate_to}, $fh);
     if ( $result ) {
         infof "success replicate object gid:%s %s to %s",
             $args->{gid}, $args->{copied}, $args->{replicate_to};

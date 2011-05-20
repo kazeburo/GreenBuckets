@@ -48,9 +48,8 @@ sub put_object {
     my ($self, $c) = @_;
     my $bucket_name = $c->args->{bucket};
     my ($filename) = @{$c->args->{splat}};
-    my $content = $c->req->raw_body;
     my $overwrite = ( lc $c->req->method eq 'put' ) ? 1 : 0;
-    $self->model->put_object($bucket_name, $filename, \$content, $overwrite);
+    $self->model->put_object($bucket_name, $filename, $c->req->body, $overwrite);
 }
 
 sub get_bucket {

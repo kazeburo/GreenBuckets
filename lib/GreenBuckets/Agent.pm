@@ -7,6 +7,7 @@ use Furl;
 use Net::DNS::Lite qw//;
 use Log::Minimal;
 use MIME::Base64;
+use Plack::TempBuffer;
 use Class::Accessor::Lite (
     new => 1,
     ro  => [qw/user passwd/]
@@ -37,25 +38,32 @@ sub get {
     my @urls = ref $urls ? @$urls : ($urls);
 
     my $res;
+    my $buf;
     for my $url ( @urls ) {
-        $res = $self->furl->get($url);
+        $buf = Plack::TempBuffer->new;
+        $res = $self->furl->request(
+            method => 'GET',
+            url => $url,
+            write_code => sub { $buf->print($_[3]) },
+        );
         infof("failed get: %s / %s", $url, $res->status_line) if ! $res->is_success;
         last if $res->is_success; 
     }
-    return $res;
+    return ($res,$buf->rewind);
 }
 
 sub put {
     my $self = shift;
     my $urls = shift;
-    my $content_ref = shift;
+    my $content_fh = shift;
  
     my @urls = ref $urls ? @$urls : ($urls);
 
     my @res;
     for my $url ( @urls ) {
         debugf("put: %s", $url);
-        my $res = $self->furl->put( $url, [], $$content_ref );
+        $content_fh->seek(0,0);
+        my $res = $self->furl->put( $url, [], $content_fh );
         infof("failed put: %s / %s", $url, $res->status_line) if ! $res->is_success;
         push @res, $res;
     }
