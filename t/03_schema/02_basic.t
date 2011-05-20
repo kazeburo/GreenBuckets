@@ -31,6 +31,19 @@ is_deeply $nodes, [
       id => 3, node => 'http://192.168.0.3/', can_read => 1, can_write => 1, remote => 0 },
 ];
 
+$schema->dbh->query('UPDATE nodes set remote = 1 WHERE id= 2');
+is_deeply $schema->select_object_nodes(
+    fid => filename_id(1),
+    bucket_id => 1
+), [
+    { object_id =>1, filename => 1, rid => 250, gid => 1, 
+      id => 1, node => 'http://192.168.0.1/', can_read => 1, can_write => 1, remote => 0 },
+    { object_id =>1, filename => 1, rid => 250, gid => 1,
+      id => 2, node => 'http://192.168.0.2/', can_read => 1, can_write => 1, remote => 1 },
+    { object_id =>1,  filename => 1, rid => 250, gid => 1,
+      id => 3, node => 'http://192.168.0.3/', can_read => 1, can_write => 1, remote => 0 },
+];
+
 my $nodes2 = $schema->select_object_nodes(
     fid => filename_id(5),
     bucket_id => 2
@@ -54,7 +67,7 @@ is_deeply $nodes2, [
 
 is_deeply $schema->select_fresh_nodes(having=>3), [
     { id => 1, gid => 1, node => 'http://192.168.0.1/', can_read => 1, can_write => 1,remote=>0 },
-    { id => 2, gid => 1, node => 'http://192.168.0.2/', can_read => 1, can_write => 1,remote=>0 },
+    { id => 2, gid => 1, node => 'http://192.168.0.2/', can_read => 1, can_write => 1,remote=>1 },
     { id => 3, gid => 1, node => 'http://192.168.0.3/', can_read => 1, can_write => 1,remote=>0 },
     { id => 4, gid => 2, node => 'http://192.168.0.4/', can_read => 1, can_write => 1,remote=>0 },
     { id => 5, gid => 2, node => 'http://192.168.0.5/', can_read => 1, can_write => 1,remote=>0 },
@@ -80,6 +93,12 @@ is( $nodes[0]->{object_id}, 9);
 is( $nodes[0]->{gid}, 2);
 ok( $nodes[0]->{uri} );
 
+@nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 1 );
+is( scalar @nodes, 3);
+is( $nodes[0]->{id}, 3);
+is( $nodes[1]->{id}, 1);
+is( $nodes[2]->{id}, 2);
+
 my $nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 1, filename => [1,9,100] );
 ok( $nodes_multi->{1} );
 ok( $nodes_multi->{9} );
@@ -101,6 +120,16 @@ is( scalar @f_nodes, 2 );
 ok( $nodes[0]->{gid});
 ok( $nodes[0]->{rid});
 ok( $nodes[0]->{uri});
+ok( grep { $_->{gid} == 1 } @f_nodes );
+for my $f_node ( @f_nodes ) {
+    if ( $f_node->{gid} == 1 ) {
+        is( scalar @{$f_node->{uri}}, 3 );
+        like $f_node->{uri}->[0], qr!^http://192\.168\.0\.3/!;
+        like $f_node->{uri}->[1], qr!^http://192\.168\.0\.1/!;
+        like $f_node->{uri}->[2], qr!^http://192\.168\.0\.2/!;
+    }
+}
+
 
 is_deeply $schema->retrieve_or_insert_bucket( name => 'test'),
     { id => 4, name => 'test', enabled => 1, deleted => 0 }; 
