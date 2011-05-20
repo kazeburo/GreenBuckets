@@ -84,7 +84,7 @@ sub get_object {
     undef $slave;
     http_croak(404) if !@uri;
     
-    my @r_uri = map { $_->{uri} } grep { $_->{can_read} } @uri;
+    my @r_uri = map { $_->{uri} } grep { $_->{can_read} && !$_->{remote} } @uri;
     http_croak(500, "all storage cannot read %s", \@uri) if ! @r_uri;
 
     my $res = $self->agent->get(\@r_uri);

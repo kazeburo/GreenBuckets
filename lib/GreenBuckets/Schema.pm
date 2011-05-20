@@ -132,7 +132,8 @@ sub retrieve_object_nodes {
         rid => $nodes[0]->{rid}
     );
     @nodes =  sort {
-        filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+        $a->{remote} <=> $b->{remote} 
+        || filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
     } map {
         my $node = $_->{node};
         $node =~ s!/$!!;
@@ -172,7 +173,8 @@ sub retrieve_object_nodes_multi {
             rid => $nodes->[0]->{rid},
         );
         my @uris =  sort {
-            filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+            $a->{remote} <=> $b->{remote} 
+            || filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
         } map {
             my $node = $_->{node};
             $node =~ s!/$!!;
@@ -220,6 +222,8 @@ sub retrieve_fresh_nodes {
 
     for my $gid ( keys %group ) {
         my @sort = map { $_->{uri}} sort {
+            $a->{remote} <=> $b->{remote} 
+            ||
             filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
         } @{$group{$gid}};
         $group{$gid} = \@sort;
