@@ -25,7 +25,7 @@ subtype 'Flag'
 no Mouse::Util::TypeConstraints;
 
 our $VERSION = 0.01;
-our @TABLES = qw/nodes buckets objects jobqueue putlock/;
+our @TABLES = qw/nodes buckets objects jobqueue recovery putlock/;
 
 __PACKAGE__->meta->make_immutable();
 1;
@@ -67,6 +67,15 @@ CREATE TABLE jobqueue (
     func VARCHAR(64),
     args BLOB,
     try SMALLINT UNSIGNED NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8
+
+@@ recovery
+CREATE TABLE recovery (
+    id INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
+    args BLOB,
+    try SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP NOT NULL,
+    INDEX (updated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
 
 @@ putlock
@@ -113,6 +122,7 @@ return +{
     dispatcher_max_worker => 20,
     # numbe of JobQueue worker
     jobqueue_max_worker => 5,
+    recovery_max_worker => 2,
 };
 
 

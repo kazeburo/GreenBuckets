@@ -91,6 +91,12 @@ has 'jobqueue_max_worker' => (
     default => 5,
 );
 
+has 'recovery_max_worker' => (
+    is => 'ro',
+    isa => 'Natural',
+    default => 2,
+);
+
 has 'agent_class' => (
     is => 'ro',
     isa => 'Str',

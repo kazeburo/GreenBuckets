@@ -16,7 +16,7 @@ use Term::ANSIColor qw//;
 use Time::HiRes qw//;
 use Mouse;
 
-our $MAX_JOB = 100;
+our $MAX_JOB = 5;
 our $SLEEP = 0.5;
 
 has 'config' => (
@@ -93,21 +93,24 @@ sub run {
 
     my $scoreboard = $self->scoreboard;
     my $status_server_pid = $self->status_server;
-
+    
     my $pm = Parallel::Prefork->new({
-        max_workers  => $self->config->jobqueue_max_worker,
+        max_workers  => $self->config->jobqueue_max_worker + $self->config->recovery_max_worker,
         trap_signals => {
             'TERM' => 'TERM',
             'HUP'  => 'TERM',
             'INT'  => 'TERM',
             'USR1' => undef,
-        }
+        },
     });
+
 
     while ( $pm->signal_received !~ m!^(?:TERM|INT)$! ) {
         $pm->start(sub{
-            debugf "process start";
-            $0 = "$0 (jobqueue worker)";       
+            srand();
+            
+            debugf "jobqueue process start";
+            $0 = "$0 (jobqueue worker)";
             $scoreboard->update('.');
 
             local $ENV{JOBQ_STOP};
@@ -117,7 +120,10 @@ sub run {
 
             while ( !$ENV{JOBQ_STOP} ) {
                 $scoreboard->update('A');
-                my $result = $self->model->dequeue;
+                my $result = int(rand($self->config->jobqueue_max_worker + $self->config->recovery_max_worker)) 
+                      > $self->config->recovery_max_worker
+                    ? $self->model->dequeue 
+                    : $self->model->dequeue_recovery;
                 $scoreboard->update('.');
                 $i++ if $result;
                 last if $i > $MAX_JOB;

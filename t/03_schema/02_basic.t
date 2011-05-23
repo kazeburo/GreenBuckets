@@ -86,8 +86,8 @@ ok( $nodes[0]->{uri} );
 
 @nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 1 );
 is( scalar @nodes, 3);
-is( $nodes[0]->{id}, 3);
-is( $nodes[1]->{id}, 1);
+is( $nodes[0]->{id}, 1);
+is( $nodes[1]->{id}, 3);
 is( $nodes[2]->{id}, 2);
 
 my $nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 1, filename => [1,9,100] );

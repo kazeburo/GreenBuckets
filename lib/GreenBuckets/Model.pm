@@ -192,8 +192,8 @@ sub put_object {
                 $f_node->{gid}, $f_node;
             next;
         }
-        my @first_nodes = splice @nodes, 0, 2;
 
+        my @first_nodes = splice @nodes, 0, 2;
         my $result = $self->agent->put(\@first_nodes, $content_fh);
 
         if ( $result ) {
@@ -207,10 +207,31 @@ sub put_object {
 
         infof "Failed upload to group_id:%s first_nodes:%s", $f_node->{gid}, \@first_nodes;
         $self->enqueue('delete_files', \@first_nodes );
-
     }
 
-    http_croak(500,"Upload failed %s/%s", $bucket_name, $filename) if !$gid;
+
+    my $recovery_queue;
+    if ( !$gid ) {
+        infof "Failed upload ... tring recovery queue";
+        my @f_nodes = $self->master->retrieve_fresh_nodes(\%fresh_nodes_args);
+        for my $f_node ( @f_nodes ) {
+            my @nodes = map { $_->{uri} } @{$f_node->{nodes}};
+            my $minimal_copy = $self->config->replica == 2 ? 1 : 2;
+            my $result = $self->agent->put(\@nodes, $content_fh, $minimal_copy);
+            if ( $result ) {
+                infof "recovery-uploaded to gid:%s nodes:%s", 
+                    $f_node->{gid}, \@nodes;
+                $gid = $f_node->{gid};
+                $rid = $f_node->{rid};
+                $recovery_queue = 1;
+                last;
+            }
+            infof "Failed recovery-upload to group_id:%s nodes:%s", $f_node->{gid}, \@nodes;
+            $self->enqueue('delete_files', \@nodes );
+        }
+    }
+
+    http_croak(500,"Upload failed") if !$gid;
 
     my $sc = start_scope_container();
     if ( @exists_nodes ) {
@@ -238,11 +259,19 @@ sub put_object {
         http_croak(500, "Cannot retrieve object_id %s/%s", $bucket_name, $filename) unless $object_id;
     }
 
-    if ( $self->config->replica > 2 ) {
+    if ( $self->config->replica > 2 && !$recovery_queue) {
         $self->enqueue('replicate_object',{
             bucket_id => $bucket->{id},
             filename => $filename,
+            rid => $rid,
             uploaded => \@uploaded,
+        });
+    }
+    elsif ( $recovery_queue ) {
+        $self->enqueue('recovery',{
+            bucket_id => $bucket->{id},
+            filename => $filename,
+            rid => $rid,
         });
     }
 
@@ -267,6 +296,18 @@ sub jobq_replicate_object {
         bucket_id => $args->{bucket_id},
         filename => $args->{filename},
     );
+    if ( !@r_nodes ) {
+        warnf "cannot find object, maybe deleted %s", $args;
+        $job->done(1);
+        return;
+    }
+
+    if ( $r_nodes[0]->{rid} != $args->{rid} ) {
+        infof "rid was changed, maybe other process worked %s", $args;
+        $job->done(1);
+        return;        
+    }
+    
     my @r_uri = map { $_->{uri} } grep { $_->{online} } @r_nodes;
     http_croak(500, 'all storages are offline %s', \@r_nodes) if ! @r_uri;
 
@@ -297,6 +338,7 @@ sub jobq_replicate_object {
     my $gid;
     my $rid;
     for my $f_node ( @f_nodes ) {
+        next if $f_node->{gid} == $r_nodes[0]->{gid};
         my @nodes = map { $_->{uri} } grep { $_->{online} } @{$f_node->{nodes}};
         if ( @nodes != $self->config->replica ) {
             debugf "skipping gid:%s, lack of online nodes. %s", 
@@ -314,22 +356,117 @@ sub jobq_replicate_object {
         $self->enqueue('delete_files', \@nodes );
     }
 
-    http_croak(500, "Failed replicate", \@r_nodes) if !$gid; 
+    if ( $gid ) {
+        infof "success re-upload %s to gid:%s", \@r_nodes, $gid;
+        my $sc = start_scope_container();
+        my $result = $self->master->update_object( 
+            gid => $gid,
+            rid => $rid,
+            object_id => $r_nodes[0]->{object_id},
+            prev_rid => $r_nodes[0]->{rid},
+        );
+        warnf "update failed maybe other worker updated: new_gid:%s, new_rid:%s", 
+            $gid, $rid unless $result;
+        $self->enqueue('delete_files', \@r_uri );
+        $job->done(1);
+        return;
+    }
 
-    infof "success re-upload %s to gid:%s", \@r_nodes, $gid;
-
+    infof "Failed replication ... tring recovery queue %s", \@r_uri;
     my $sc = start_scope_container();
-    my $result = $self->master->update_object( 
-        gid => $gid,
+    my $result = $self->enqueue('recovery',{
+        bucket_id => $args->{bucket_id},
+        filename => $args->{filename},
         rid => $rid,
-        object_id => $r_nodes[0]->{object_id},
-        prev_rid => $r_nodes[0]->{rid},
-    );
-    warnf "update failed maybe other worker updated: new_gid:%s, new_rid:%s", 
-        $gid, $rid unless $result;
-
-    $self->enqueue('delete_files', \@r_uri );
+    });
     $job->done(1);
+    return;
+}
+
+sub jobq_recovery_object {
+    my $self = shift;
+    my $job = shift;
+    my $args = $job->args;
+
+    my @r_nodes = $self->master->retrieve_object_nodes(
+        bucket_id => $args->{bucket_id},
+        filename => $args->{filename},
+    );
+    if ( !@r_nodes ) {
+        warnf "cannot find object, maybe deleted %s", $args;
+        $job->done(1);
+        return;
+    }
+
+    if ( $r_nodes[0]->{rid} != $args->{rid} ) {
+        infof "rid was changed, maybe other process worked %s", $args;
+        $job->done(1);
+        return;        
+    }
+
+    my @r_uri = map { $_->{uri} } grep { $_->{online} } @r_nodes;
+    http_croak(500, 'all storages are offline %s', \@r_nodes) if ! @r_uri;
+
+    my ($res,$fh) = $self->agent->get(\@r_uri);
+    http_croak(500, 'cannot get %s,  status_line:%s', \@r_uri, $res->status_line) if !$res->is_success;
+
+    debugf 'replicate %s', \@r_nodes;
+    if ( ! grep { ! $_->{online} } @r_nodes ) { # all nodes are online
+        my $result = $self->agent->put(\@r_uri, $fh);
+        if ( $result ) {
+            infof "success replicate object gid:%s %s to %s", $r_nodes[0]->{gid}, $args, \@r_uri;
+            $job->done(1);
+            return;
+        }
+    }
+
+    infof "failed replicate object %s .. retry another fresh_nodes", \@r_nodes;
+
+     my @f_nodes = $self->master->retrieve_fresh_nodes(
+        bucket_id => $args->{bucket_id}, 
+        filename => $args->{filename},
+        replica => $self->config->replica,
+    );
+    die "cannot find fresh_nodes" if !@f_nodes;
+
+    my $gid;
+    my $rid;
+    for my $f_node ( @f_nodes ) {
+        next if $f_node->{gid} == $r_nodes[0]->{gid};
+        my @nodes = map { $_->{uri} } grep { $_->{online} } @{$f_node->{nodes}};
+        if ( @nodes != $self->config->replica ) {
+            debugf "skipping gid:%s, lack of online nodes. %s", 
+                $f_node->{gid}, $f_node;
+            next;
+        }
+
+        my $result = $self->agent->put( \@nodes, $fh );
+        if ( $result ) {
+             $gid = $f_node->{gid};
+            $rid = $f_node->{rid};
+            last;
+        }
+        infof "Failed re-upload %s from %s", $f_node->{nodes}, \@r_nodes;
+        $self->enqueue('delete_files', \@nodes );
+    }
+
+    if ( $gid ) {
+        infof "success re-upload %s to gid:%s", \@r_nodes, $gid;
+        my $sc = start_scope_container();
+        my $result = $self->master->update_object( 
+            gid => $gid,
+            rid => $rid,
+            object_id => $r_nodes[0]->{object_id},
+            prev_rid => $r_nodes[0]->{rid},
+        );
+        warnf "update failed maybe other worker updated: new_gid:%s, new_rid:%s", 
+            $gid, $rid unless $result;
+        $self->enqueue('delete_files', \@r_uri );
+        $job->done(1);
+        return;
+    }
+
+    http_croak(500, "Failed replication ... waiting for retry %s", \@r_uri);
 }
 
 sub delete_object {
@@ -365,6 +502,7 @@ sub delete_object {
 
     return $self->res_ok;
 }
+
 
 sub jobq_delete_files {
     my $self = shift;
@@ -512,15 +650,57 @@ sub dequeue {
     1;
 }
 
+
+sub dequeue_recovery {
+    my $self = shift;
+    my $queue = $self->master->retrieve_recovery_queue;
+    return unless $queue;
+
+    my $args = Data::MessagePack->unpack($queue->{args});
+    my $try = $queue->{try};
+    $try++;
+
+    my $job;
+    try {
+        debugf "execute recovery_object try:%d args:%s", $try, $args;
+        $job = GreenBuckets::Model::Job->new(
+            args => $args,
+        );
+        $self->jobq_recovery_object($job);
+        debugf "success recovery_object, try:%d, args:%s", $try, $args;
+    } catch {
+        warnf "recovery_object try:%d failed:%s ... retrying", $try, $_;
+    } finally {
+        if ( !$job || !$job->done ) {
+            sleep 1 unless $ENV{JOBQ_STOP}; #XXX
+            $self->master->insert_recovery_queue(
+                args => $queue->{args},
+                try  => $try,
+            );
+        }
+    };
+
+    1;
+}
+
+
 sub enqueue {
     my $self = shift;
     my ($func, $args ) = @_;
     $args = Data::MessagePack->pack($args);
-    $self->master->insert_queue(
-        func => $func, 
-        args => $args
-    );
+    if ( $func eq 'recovery' ) {
+        $self->master->insert_recovery_queue(
+            args => $args
+        );
+    }
+    else {
+        $self->master->insert_queue(
+            func => $func, 
+            args => $args
+        );
+    }
 }
+
 
 1;
 

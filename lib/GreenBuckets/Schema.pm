@@ -92,6 +92,27 @@ __PACKAGE__->query(
     q{INSERT INTO jobqueue (func, args, try) VALUES (?,?,?) },
 );
 
+__PACKAGE__->select_all(
+    'select_recovery_queue',
+    minute => { isa => 'Natural', default => 15 },
+    limit => { isa =>'Natural', default => 10 },
+    q{SELECT * FROM recovery WHERE updated_at < DATE_SUB(NOW(), INTERVAL ? MINUTE) ORDER BY id LIMIT ?}
+);
+
+__PACKAGE__->query(
+    'delete_recovery_queue',
+    id => { isa =>'Natural' },
+    q{DELETE FROM recovery WHERE id =?},
+);
+
+__PACKAGE__->query(
+    'insert_recovery_queue',
+    args => { isa =>'Str' },
+    try => { isa => 'Natural', default => 0 },
+    q{INSERT INTO recovery (args, try) VALUES (?,?) },
+);
+
+
 __PACKAGE__->query(
     'release_putlock',
     lock => 'Str',
@@ -321,6 +342,28 @@ sub retrieve_queue {
     }
     $queue;
 }
+
+
+sub retrieve_recovery_queue {
+    my $self = shift;
+    my $args = $self->args(
+        'minute' => { isa => 'Natural', default => 1 },
+        'limit'  => { isa => 'Natural', default => 10 },
+    );
+    my $queues = $self->select_recovery_queue( limit => $args->{limit}, minute => $args->{minute} );
+    return unless @$queues;
+    
+    my $queue;
+    for my $r_queue ( @$queues ) {
+        my $result = $self->delete_recovery_queue( id => $r_queue->{id} );
+        if ( $result == 1 ) {
+            $queue = $r_queue;
+            last;
+        }
+    }
+    $queue;
+}
+
 
 sub putlock {
    my $self = shift;

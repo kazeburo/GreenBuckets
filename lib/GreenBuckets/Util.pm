@@ -36,7 +36,7 @@ sub object_path {
     my $args = $rule->validate(@_);
     my $filename = $args->{filename};
     $filename = Encode::encode_utf8($filename) if Encode::is_utf8($filename);
-    my $fid = filename_id($filename);
+    my $fid = filename_id($args->{bucket_id}.'/'.$args->{rid}.'/'.$filename);
     my $hash = sha224_hex($args->{bucket_id}.'/'.$args->{rid}.'/'.$filename);
     my $path = sprintf("%02d/%02d/%s",
                        int( $fid % 10000 / 100),

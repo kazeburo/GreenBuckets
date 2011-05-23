@@ -56,8 +56,10 @@ sub put {
     my $self = shift;
     my $urls = shift;
     my $content_fh = shift;
- 
+    my $success = shift;
+
     my @urls = ref $urls ? @$urls : ($urls);
+    $success ||= scalar @urls;
 
     my @res;
     for my $url ( @urls ) {
@@ -69,7 +71,7 @@ sub put {
     }
 
     my @success = grep { $_->is_success } @res;
-    return @success == @urls;
+    return @success == $success;
 }
 
 sub delete {
