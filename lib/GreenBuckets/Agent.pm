@@ -35,11 +35,13 @@ sub furl {
 sub get {
     my $self = shift;
     my $urls = shift;
+    my $query_string = shift;
     my @urls = ref $urls ? @$urls : ($urls);
-
+    
     my $res;
     my $buf;
     for my $url ( @urls ) {
+        $url .= '?' . $query_string if $query_string;
         $buf = Plack::TempBuffer->new;
         $res = $self->furl->request(
             method => 'GET',

@@ -41,7 +41,7 @@ sub get_object {
     my ($self, $c) = @_;
     my $bucket_name = $c->args->{bucket};
     my ($filename) = @{$c->args->{splat}};
-    $self->model->get_object($bucket_name, $filename);
+    $self->model->get_object($bucket_name, $filename, $c->req->env->{QUERY_STRING});
 }
 
 sub put_object {
