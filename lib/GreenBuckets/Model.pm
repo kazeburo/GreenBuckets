@@ -184,11 +184,12 @@ sub put_object {
 
     my $gid;
     my $rid;
+    my @uploaded;
     for my $f_node ( @f_nodes ) {
         my @nodes = map { $_->{uri} } grep { $_->{online} } @{$f_node->{nodes}};
         if ( @nodes != $self->config->replica ) {
-            infof "skipping gid:%s, online nodes short %s", 
-                $f_node->{gid}, $f_node->{nodes};
+            debugf "skipping gid:%s, lack of online nodes. %s", 
+                $f_node->{gid}, $f_node;
             next;
         }
         my @first_nodes = splice @nodes, 0, 2;
@@ -200,6 +201,7 @@ sub put_object {
                 $f_node->{gid}, \@first_nodes;
             $gid = $f_node->{gid};
             $rid = $f_node->{rid};
+            @uploaded = @first_nodes;
             last;
         }
 
@@ -240,6 +242,7 @@ sub put_object {
         $self->enqueue('replicate_object',{
             bucket_id => $bucket->{id},
             filename => $filename,
+            uploaded => \@uploaded,
         });
     }
 
@@ -272,9 +275,11 @@ sub jobq_replicate_object {
 
     debugf 'replicate %s', \@r_nodes;
     if ( ! grep { ! $_->{online} } @r_nodes ) { # all nodes are online
-        my $result = $self->agent->put(\@r_uri, $fh);
+        my %uploaded = map { $_ => 1 } @{$args->{uploaded}};
+        my $result = $self->agent->put([grep { ! exists $uploaded{$_} } @r_uri], $fh);
         if ( $result ) {
-            infof "success replicate object %s", \@r_nodes;
+            infof "success replicate object gid:%s %s to %s", $r_nodes[0]->{gid}, $args, 
+                [grep { ! exists $uploaded{$_} } @r_uri];
             $job->done(1);
             return;
         }
@@ -294,15 +299,14 @@ sub jobq_replicate_object {
     for my $f_node ( @f_nodes ) {
         my @nodes = map { $_->{uri} } grep { $_->{online} } @{$f_node->{nodes}};
         if ( @nodes != $self->config->replica ) {
-            infof "skipping gid:%s, online nodes short %s", 
-                $f_node->{gid}, $f_node->{nodes};
+            debugf "skipping gid:%s, lack of online nodes. %s", 
+                $f_node->{gid}, $f_node;
             next;
         }
 
         my $result = $self->agent->put( \@nodes, $fh );
         if ( $result ) {
-            infof "%s was re-uploaded to %s", \@r_nodes, $f_node->{nodes};
-            $gid = $f_node->{gid};
+             $gid = $f_node->{gid};
             $rid = $f_node->{rid};
             last;
         }
@@ -318,8 +322,8 @@ sub jobq_replicate_object {
     my $result = $self->master->update_object( 
         gid => $gid,
         rid => $rid,
-        object_id => $args->{object_id},
-        prev_rid => $args->{rid},
+        object_id => $r_nodes[0]->{object_id},
+        prev_rid => $r_nodes[0]->{rid},
     );
     warnf "update failed maybe other worker updated: new_gid:%s, new_rid:%s", 
         $gid, $rid unless $result;

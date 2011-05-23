@@ -33,7 +33,7 @@ return +{
     # number of dispatcher worker
     dispatcher_max_worker => 20,
     # numbe of JobQueue worker
-    jobqueue_max_worker => 5,
+    jobqueue_max_worker => 1,
 
 #    agent_class => "GreenBuckets::Agent::Dummy",
 };

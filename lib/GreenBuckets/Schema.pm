@@ -128,7 +128,8 @@ sub retrieve_object_nodes {
     );
     @nodes =  sort {
         $a->{remote} <=> $b->{remote} 
-        || filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+        || filename_id(join "/", $a->{id},$args->{bucket_id},$args->{filename}) 
+            <=> filename_id(join "/", $b->{id},$args->{bucket_id},$args->{filename})
     } map {
         my $node = $_->{node};
         $node =~ s!/$!!;
@@ -169,7 +170,8 @@ sub retrieve_object_nodes_multi {
         );
         my @uris =  sort {
             $a->{remote} <=> $b->{remote} 
-            || filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+            || filename_id(join "/", $a->{id}, $nodes->[0]->{filename}, $nodes->[0]->{bucket_id})
+                <=> filename_id(join "/", $b->{id}, $nodes->[0]->{filename}, $nodes->[0]->{bucket_id})
         } map {
             my $node = $_->{node};
             $node =~ s!/$!!;
