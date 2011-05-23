@@ -181,7 +181,11 @@ sub status_server {
             }
         }
 
-        my $db_stats = $self->model->stats;
+        my $db_stats;
+        eval { 
+            $db_stats = $self->model->stats;
+        };
+        $db_stats ||= {};
 
         $raw_stats = <<EOF;
 Uptime: $uptime
