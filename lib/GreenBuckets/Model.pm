@@ -84,8 +84,8 @@ sub get_object {
     undef $slave;
     http_croak(404) if !@uri;
     
-    my @r_uri = map { $_->{uri} } grep { $_->{can_read} && !$_->{remote} } @uri;
-    http_croak(500, "all storage cannot read %s", \@uri) if ! @r_uri;
+    my @r_uri = map { $_->{uri} } grep { $_->{online} && !$_->{remote} } @uri;
+    http_croak(500, "all storages are %s", \@uri) if ! @r_uri;
 
     my ($res,$fh) = $self->agent->get(\@r_uri);
     http_croak(500, "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line)
@@ -169,9 +169,9 @@ sub put_object {
 
     my $object_id;
     my %fresh_nodes_args = (
-        bucket_id => $bucket->{id}, 
+        bucket_id => $bucket->{id},
         filename => $filename,
-        having => $self->config->replica,
+        replica => $self->config->replica,
     );
     if ( @exists_nodes ) {
         $object_id = $exists_nodes[0]->{object_id}; #objects.id
@@ -184,26 +184,26 @@ sub put_object {
 
     my $gid;
     my $rid;
-    my @copied;
-    my @replicate_to;
     for my $f_node ( @f_nodes ) {
-        my @nodes = @{$f_node->{uri}};
+        my @nodes = map { $_->{uri} } grep { $_->{online} } @{$f_node->{nodes}};
+        if ( @nodes != $self->config->replica ) {
+            infof "skipping gid:%s, online nodes short %s", 
+                $f_node->{gid}, $f_node->{nodes};
+            next;
+        }
         my @first_nodes = splice @nodes, 0, 2;
-        
+
         my $result = $self->agent->put(\@first_nodes, $content_fh);
 
         if ( $result ) {
-            infof "%s/%s was uploaded to gid:%s first_nodes:%s", 
-                $bucket_name, $filename, $f_node->{gid}, \@first_nodes;
+            infof "uploaded to gid:%s first_nodes:%s", 
+                $f_node->{gid}, \@first_nodes;
             $gid = $f_node->{gid};
             $rid = $f_node->{rid};
-            @copied = @first_nodes;
-            @replicate_to = @nodes;
             last;
         }
 
-        infof "Failed upload %s/%s to group_id:%s first_nodes:%s",
-            $bucket_name, $filename, $f_node->{gid}, \@first_nodes;
+        infof "Failed upload to group_id:%s first_nodes:%s", $f_node->{gid}, \@first_nodes;
         $self->enqueue('delete_files', \@first_nodes );
 
     }
@@ -236,15 +236,10 @@ sub put_object {
         http_croak(500, "Cannot retrieve object_id %s/%s", $bucket_name, $filename) unless $object_id;
     }
 
-    if ( @replicate_to ) {
+    if ( $self->config->replica > 2 ) {
         $self->enqueue('replicate_object',{
-            rid => $rid,
-            gid => $gid,
-            object_id => $object_id,
             bucket_id => $bucket->{id},
             filename => $filename,
-            copied => \@copied,
-            replicate_to => \@replicate_to,
         });
     }
 
@@ -265,62 +260,71 @@ sub jobq_replicate_object {
     my $job = shift;
     my $args = $job->args;
 
-    my ($res,$fh) = $self->agent->get($args->{copied});
-    die sprintf("cannot get %s,  status_line:",
-                $args->{copied}, $res->status_line) if !$res->is_success;
+    my @r_nodes = $self->master->retrieve_object_nodes(
+        bucket_id => $args->{bucket_id},
+        filename => $args->{filename},
+    );
+    my @r_uri = map { $_->{uri} } grep { $_->{online} } @r_nodes;
+    http_croak(500, 'all storages are offline %s', \@r_nodes) if ! @r_uri;
 
-    debugf 'replicate %s to %s', $args->{copied}, $args->{replicate_to};
-    my $result = $self->agent->put($args->{replicate_to}, $fh);
-    if ( $result ) {
-        infof "success replicate object gid:%s %s to %s",
-            $args->{gid}, $args->{copied}, $args->{replicate_to};
-        $job->done(1);
-        return;
+    my ($res,$fh) = $self->agent->get(\@r_uri);
+    http_croak(500, 'cannot get %s,  status_line:%s', \@r_uri, $res->status_line) if !$res->is_success;
+
+    debugf 'replicate %s', \@r_nodes;
+    if ( ! grep { ! $_->{online} } @r_nodes ) { # all nodes are online
+        my $result = $self->agent->put(\@r_uri, $fh);
+        if ( $result ) {
+            infof "success replicate object %s", \@r_nodes;
+            $job->done(1);
+            return;
+        }
     }
 
-    infof "failed replicate object gid:%s %s to %s .. retry another fresh_nodes",
-            $args->{gid}, $args->{copied}, $args->{replicate_to};
+    infof "failed replicate object %s .. retry another fresh_nodes", \@r_nodes;
 
      my @f_nodes = $self->master->retrieve_fresh_nodes(
         bucket_id => $args->{bucket_id}, 
         filename => $args->{filename},
-        having => $self->config->replica
+        replica => $self->config->replica,
     );
     die "cannot find fresh_nodes" if !@f_nodes;
 
     my $gid;
     my $rid;
     for my $f_node ( @f_nodes ) {
-        next if $args->{gid} == $f_node->{gid}; # skip
-        my $result = $self->agent->put( $f_node->{uri} );
+        my @nodes = map { $_->{uri} } grep { $_->{online} } @{$f_node->{nodes}};
+        if ( @nodes != $self->config->replica ) {
+            infof "skipping gid:%s, online nodes short %s", 
+                $f_node->{gid}, $f_node->{nodes};
+            next;
+        }
+
+        my $result = $self->agent->put( \@nodes, $fh );
         if ( $result ) {
-            infof "%s was reuploaded to gid:%s %s", 
-                $args->{copied}, $f_node->{gid}, $f_node->{uri};
+            infof "%s was re-uploaded to %s", \@r_nodes, $f_node->{nodes};
             $gid = $f_node->{gid};
             $rid = $f_node->{rid};
             last;
         }
-        infof "Failed replicate %s to gid:%s %s",
-            $args->{copied}, $f_node->{gid}, $f_node->{uri};
-        $self->enqueue('delete_files', $f_node->{uri} );
+        infof "Failed re-upload %s from %s", $f_node->{nodes}, \@r_nodes;
+        $self->enqueue('delete_files', \@nodes );
     }
 
-    die sprintf("failed replicate %s", $args->{copied}) if !$gid;
-    
-    infof "success reupload %s to gid:%s", 
-        $args->{copied}, $gid;
+    http_croak(500, "Failed replicate", \@r_nodes) if !$gid; 
+
+    infof "success re-upload %s to gid:%s", \@r_nodes, $gid;
 
     my $sc = start_scope_container();
-    $result = $self->master->update_object( 
+    my $result = $self->master->update_object( 
         gid => $gid,
         rid => $rid,
         object_id => $args->{object_id},
         prev_rid => $args->{rid},
     );
-    warnf "update failed maybe other worker updated: new_gid:%s, new_rid:%s %s", 
-        $gid, $rid, $args unless $result;
-    $self->enqueue('delete_files', $args->{copied} );
+    warnf "update failed maybe other worker updated: new_gid:%s, new_rid:%s", 
+        $gid, $rid unless $result;
 
+    $self->enqueue('delete_files', \@r_uri );
     $job->done(1);
 }
 

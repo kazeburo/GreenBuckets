@@ -33,18 +33,20 @@ sub setup {
         $dbh->query($all_tables->{$_});
     }
 
-    $dbh->query(q{INSERT INTO nodes SET gid=1, node='http://192.168.0.1/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=1, node='http://192.168.0.2/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=1, node='http://192.168.0.3/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=2, node='http://192.168.0.4/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=2, node='http://192.168.0.5/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=2, node='http://192.168.0.6/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=3, node='http://192.168.0.7/', can_read=1, can_write=0});
-    $dbh->query(q{INSERT INTO nodes SET gid=3, node='http://192.168.0.8/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=3, node='http://192.168.0.9/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=4, node='http://192.168.0.10/', can_read=1, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=4, node='http://192.168.0.11/', can_read=0, can_write=1});
-    $dbh->query(q{INSERT INTO nodes SET gid=4, node='http://192.168.0.12/', can_read=1, can_write=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=1, node='http://192.168.0.1/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=1, node='http://192.168.0.2/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=1, node='http://192.168.0.3/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=2, node='http://192.168.0.4/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=2, node='http://192.168.0.5/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=2, node='http://192.168.0.6/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=3, node='http://192.168.0.7/', online=1, fresh=0});
+    $dbh->query(q{INSERT INTO nodes SET gid=3, node='http://192.168.0.8/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=3, node='http://192.168.0.9/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=4, node='http://192.168.0.10/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=4, node='http://192.168.0.11/', online=0, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=4, node='http://192.168.0.12/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=5, node='http://192.168.0.21/', online=1, fresh=1});
+    $dbh->query(q{INSERT INTO nodes SET gid=5, node='http://192.168.0.22/', online=1, fresh=1});
 
     $dbh->query(q{INSERT INTO buckets SET name = ?}, 'foo');
     $dbh->query(q{INSERT INTO buckets SET name = ?}, 'bar');

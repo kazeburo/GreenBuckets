@@ -30,11 +30,6 @@ __PACKAGE__->select_all(
     q{SELECT * FROM objects WHERE bucket_id = ? LIMIT ?}
 );
 
-__PACKAGE__->select_all(
-    'select_fresh_nodes',
-    having => 'Natural',
-    q{SELECT * FROM nodes WHERE gid IN (SELECT gid FROM nodes WHERE can_read=1 AND can_write=1 GROUP BY gid HAVING COUNT(gid) = ?)}
-);
 
 __PACKAGE__->query(
     'enable_bucket',
@@ -191,11 +186,11 @@ sub retrieve_fresh_nodes {
     my $args = $self->args(
         'bucket_id'  => 'Natural',
         'filename' => 'Str',
-        'having' => 'Int',
+        'replica' => 'Replica',
         'previous_rid' => { isa => 'Natural', optional => 1 }
     );
 
-    my $nodes = $self->select_fresh_nodes( having => $args->{having} );
+    my $nodes = $self->select_all('SELECT * FROM nodes WHERE fresh = 1');
 
     my %group;
     my $rid = gen_rid();
@@ -221,15 +216,20 @@ sub retrieve_fresh_nodes {
     }
 
     for my $gid ( keys %group ) {
-        my @sort = map { $_->{uri}} sort {
+        my @sort = sort {
             $a->{remote} <=> $b->{remote} 
             ||
-            filename_id(join "/", $a->{id},$object_path) <=> filename_id(join "/", $b->{id},$object_path)
+            filename_id(join "/", $a->{id}, $args->{bucket_id}, $args->{filename}) <=> 
+                filename_id(join "/", $b->{id}, $args->{bucket_id}, $args->{filename})
         } @{$group{$gid}};
         $group{$gid} = \@sort;
     }
 
-    map { { rid => $rid, gid => $_, uri => $group{$_} } } shuffle keys %group;
+    map {{
+        rid => $rid,
+        gid => $_,
+        nodes => $group{$_},
+    }} grep { @{$group{$_}} == $args->{replica}  } shuffle keys %group;
 }
 
 sub retrieve_or_insert_bucket {
