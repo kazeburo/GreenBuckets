@@ -702,6 +702,17 @@ sub enqueue {
 }
 
 
+sub stats {
+    my $self = shift;
+    my $master = $self->master;
+    return {
+        buckets_maxid => $master->buckets_maxid,
+        objects_maxid => $master->objects_maxid,
+        jobqueue      => $master->count_queue,
+        recovery_queue => $master->count_recovery_queue,
+    };
+}
+
 1;
 
 package GreenBuckets::Model::Job;

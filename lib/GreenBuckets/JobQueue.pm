@@ -180,10 +180,17 @@ sub status_server {
                 $idle++;
             }
         }
+
+        my $db_stats = $self->model->stats;
+
         $raw_stats = <<EOF;
 Uptime: $uptime
 BusyWorkers: $busy
 IdleWorkers: $idle
+ObjectsMaxID: $db_stats->{objects_maxid}
+BucketsMaxID: $db_stats->{buckets_maxid}
+Queue: $db_stats->{jobqueue}
+RecoveryQueue: $db_stats->{recovery_queue}
 EOF
         print $client $raw_stats;
     }

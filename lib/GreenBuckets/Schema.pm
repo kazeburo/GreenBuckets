@@ -16,6 +16,17 @@ __PACKAGE__->select_row(
     q{SELECT * FROM buckets WHERE name = ?}
 );
 
+__PACKAGE__->select_one(
+    'buckets_maxid',
+    q{SELECT max(id) FROM buckets}
+);
+
+
+__PACKAGE__->select_one(
+    'objects_maxid',
+    q{SELECT max(id) FROM objects}
+);
+
 __PACKAGE__->select_all(
     'select_object_nodes',
     fid => 'Natural',
@@ -78,6 +89,11 @@ __PACKAGE__->select_all(
     q{SELECT * FROM jobqueue ORDER BY id LIMIT ?}
 );
 
+__PACKAGE__->select_one(
+    'count_queue',
+    q{SELECT count(*) FROM jobqueue}
+);
+
 __PACKAGE__->query(
     'delete_queue',
     id => { isa =>'Natural' },
@@ -99,6 +115,11 @@ __PACKAGE__->select_all(
     q{SELECT * FROM recovery WHERE updated_at < DATE_SUB(NOW(), INTERVAL ? MINUTE) ORDER BY id LIMIT ?}
 );
 
+__PACKAGE__->select_one(
+    'count_recovery_queue',
+    q{SELECT count(*) FROM recovery}
+);
+
 __PACKAGE__->query(
     'delete_recovery_queue',
     id => { isa =>'Natural' },
@@ -111,7 +132,6 @@ __PACKAGE__->query(
     try => { isa => 'Natural', default => 0 },
     q{INSERT INTO recovery (args, try) VALUES (?,?) },
 );
-
 
 __PACKAGE__->query(
     'release_putlock',
