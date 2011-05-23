@@ -347,7 +347,7 @@ sub retrieve_queue {
 sub retrieve_recovery_queue {
     my $self = shift;
     my $args = $self->args(
-        'minute' => { isa => 'Natural', default => 1 },
+        'minute' => { isa => 'Natural', default => 15 },
         'limit'  => { isa => 'Natural', default => 10 },
     );
     my $queues = $self->select_recovery_queue( limit => $args->{limit}, minute => $args->{minute} );
