@@ -14,7 +14,7 @@ use Class::Load qw/load_class/;
 use List::Util qw/shuffle/;
 use Try::Tiny;
 use Log::Minimal;
-use Data::MessagePack;
+use JSON;
 use Mouse;
 
 our $MAX_RETRY_JOB = 3600;
@@ -50,6 +50,8 @@ sub agent {
         $self->{_agent} = $agent_class->new(
             user =>  $self->config->dav_user,
             passwd => $self->config->dav_passwd,
+            timeout_for_get => $self->config->timeout_for_get,
+            timeout_for_put => $self->config->timeout_for_put
         );
     }
     else {
@@ -610,7 +612,7 @@ sub dequeue {
     my $queue = $self->master->retrieve_queue;
     return unless $queue;
 
-    my $args = Data::MessagePack->unpack($queue->{args});
+    my $args = decode_json($queue->{args});
     my $func = $queue->{func};
     my $try = $queue->{try};
     $try++;
@@ -656,7 +658,7 @@ sub dequeue_recovery {
     my $queue = $self->master->retrieve_recovery_queue;
     return unless $queue;
 
-    my $args = Data::MessagePack->unpack($queue->{args});
+    my $args = decode_json($queue->{args});;
     my $try = $queue->{try};
     $try++;
 
@@ -687,7 +689,7 @@ sub dequeue_recovery {
 sub enqueue {
     my $self = shift;
     my ($func, $args ) = @_;
-    $args = Data::MessagePack->pack($args);
+    $args = encode_json($args);
     if ( $func eq 'recovery' ) {
         $self->master->insert_recovery_queue(
             args => $args

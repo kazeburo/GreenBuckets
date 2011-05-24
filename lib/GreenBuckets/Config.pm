@@ -103,6 +103,18 @@ has 'agent_class' => (
     default => 'GreenBuckets::Agent',
 );
 
+has 'timeout_for_get' => (
+    is => 'ro',
+    isa => 'Natural',
+    default => 10,
+);
+
+has 'timeout_for_put' => (
+    is => 'ro',
+    isa => 'Natural',
+    default => 30,
+);
+
 __PACKAGE__->meta->make_immutable();
 1;
 
