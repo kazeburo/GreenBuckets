@@ -87,7 +87,7 @@ sub get_object {
     my @r_uri = map { $_->{uri} } grep { $_->{online} && !$_->{remote} } @uri;
     http_croak(500, "all storages are %s", \@uri) if ! @r_uri;
 
-    my ($res,$fh) = $self->agent->get(\@r_uri, $query_string);
+    my ($res,$fh) = $self->agent->get(\@r_uri, $bucket_name, $filename, $query_string);
     http_croak(500, "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line)
         if !$res->is_success; 
 
