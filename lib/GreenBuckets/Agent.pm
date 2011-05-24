@@ -49,7 +49,7 @@ sub get {
     for my $url ( @urls ) {
         $url .= '?' . $query_string if $query_string;
         my @headers;
-        push @headers, 'X-GreenBuckets-Orginal-Path', $original_path if $original_path;
+        push @headers, 'X-GreenBuckets-Original-Path', $original_path if $original_path;
         $buf = Plack::TempBuffer->new;
         $res = $self->furl->request(
             method => 'GET',
