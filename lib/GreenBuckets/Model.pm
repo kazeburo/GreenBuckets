@@ -81,6 +81,7 @@ sub get_object {
     my @uri = $slave->retrieve_object_nodes(
         bucket_id => $bucket->{id},
         filename => $filename,
+        flat => $self->config->flat_dav
     );
 
     undef $slave;
@@ -162,7 +163,8 @@ sub put_object {
     
     my @exists_nodes = $master->retrieve_object_nodes(
         bucket_id => $bucket->{id},
-        filename => $filename
+        filename => $filename,
+        flat => $self->config->flat_dav
     );
 
     if ( @exists_nodes && !$overwrite_ok) {
@@ -174,6 +176,7 @@ sub put_object {
         bucket_id => $bucket->{id},
         filename => $filename,
         replica => $self->config->replica,
+        flat => $self->config->flat_dav,
     );
     if ( @exists_nodes ) {
         $object_id = $exists_nodes[0]->{object_id}; #objects.id
@@ -297,6 +300,7 @@ sub jobq_replicate_object {
     my @r_nodes = $self->master->retrieve_object_nodes(
         bucket_id => $args->{bucket_id},
         filename => $args->{filename},
+        flat => $self->config->flat_dav
     );
     if ( !@r_nodes ) {
         warnf "cannot find object, maybe deleted %s", $args;
@@ -334,6 +338,7 @@ sub jobq_replicate_object {
         bucket_id => $args->{bucket_id}, 
         filename => $args->{filename},
         replica => $self->config->replica,
+        flat => $self->config->flat_dav,
     );
     die "cannot find fresh_nodes" if !@f_nodes;
 
@@ -393,6 +398,7 @@ sub jobq_recovery_object {
     my @r_nodes = $self->master->retrieve_object_nodes(
         bucket_id => $args->{bucket_id},
         filename => $args->{filename},
+        flat => $self->config->flat_dav
     );
     if ( !@r_nodes ) {
         warnf "cannot find object, maybe deleted %s", $args;
@@ -425,9 +431,10 @@ sub jobq_recovery_object {
     infof "failed replicate object %s .. retry another fresh_nodes", \@r_nodes;
 
      my @f_nodes = $self->master->retrieve_fresh_nodes(
-        bucket_id => $args->{bucket_id}, 
+        bucket_id => $args->{bucket_id},
         filename => $args->{filename},
         replica => $self->config->replica,
+        flat => $self->config->flat_dav,
     );
     die "cannot find fresh_nodes" if !@f_nodes;
 
@@ -487,6 +494,7 @@ sub delete_object {
     my @nodes = $master->retrieve_object_nodes(
         bucket_id => $bucket->{id},
         filename => $filename,
+        flat => $self->config->flat_dav
     );
 
     http_croak(404) unless @nodes;
@@ -532,7 +540,8 @@ sub delete_object_multi {
         
         my $grouped_uri = $master->retrieve_object_nodes_multi(
             bucket_id => $bucket->{id},
-            filename => \@spliced
+            filename => \@spliced,
+            flat => $self->config->flat_dav
         );
         
         for my $filename ( @spliced ) {
@@ -592,6 +601,7 @@ sub jobq_delete_bucket {
             my @nodes = $master->retrieve_object_nodes(
                 bucket_id => $bucket_id,
                 filename => $object->{filename},
+                flat => $self->config->flat_dav
             );
             $master->delete_object(
                 object_id => $nodes[0]->{object_id},

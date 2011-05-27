@@ -36,6 +36,7 @@ return +{
     jobqueue_max_worker => 5,
     recovery_max_worker => 2,
 
+    flat_dav => 1,
 #    agent_class => "GreenBuckets::Agent::Dummy",
 };
 

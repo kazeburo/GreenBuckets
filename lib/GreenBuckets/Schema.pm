@@ -150,6 +150,7 @@ sub retrieve_object_nodes {
     my $args = $self->args(
         'bucket_id'  => 'Natural',
         'filename' => 'Str',
+        'flat'     => 'Flag',
     );
 
     my $fid = filename_id($args->{filename});
@@ -165,7 +166,8 @@ sub retrieve_object_nodes {
     my $object_path = object_path(
         filename => $args->{filename},
         bucket_id => $args->{bucket_id},
-        rid => $nodes[0]->{rid}
+        rid => $nodes[0]->{rid},
+        flat => $args->{flat},
     );
     @nodes =  sort {
         $a->{remote} <=> $b->{remote} 
@@ -182,8 +184,9 @@ sub retrieve_object_nodes {
 sub retrieve_object_nodes_multi {
     my $self = shift;
     my $args = $self->args(
-        'bucket_id'  => 'Natural',
+        'bucket_id' => 'Natural',
         'filename' => 'ArrayRef[Str]',
+        'flat'     => 'Flag',
     );
 
    my %filenames = map {
@@ -208,6 +211,7 @@ sub retrieve_object_nodes_multi {
             filename => $nodes->[0]->{filename},
             bucket_id => $nodes->[0]->{bucket_id},
             rid => $nodes->[0]->{rid},
+            flat => $args->{flat}
         );
         my @uris =  sort {
             $a->{remote} <=> $b->{remote} 
@@ -230,7 +234,8 @@ sub retrieve_fresh_nodes {
         'bucket_id'  => 'Natural',
         'filename' => 'Str',
         'replica' => 'Replica',
-        'previous_rid' => { isa => 'Natural', optional => 1 }
+        'previous_rid' => { isa => 'Natural', optional => 1 },
+        'flat' => 'Flag',
     );
 
     my $nodes = $self->select_all('SELECT * FROM nodes WHERE fresh = 1');
@@ -246,7 +251,8 @@ sub retrieve_fresh_nodes {
     my $object_path = object_path(
         bucket_id => $args->{bucket_id},
         filename => $args->{filename},
-        rid => $rid
+        rid => $rid,
+        flat => $args->{flat}
     );
     for my $node ( @$nodes ) {
         $group{$node->{gid}} ||= [];

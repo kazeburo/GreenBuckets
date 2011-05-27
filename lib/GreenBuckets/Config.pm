@@ -49,6 +49,12 @@ has 'dav_passwd' => (
     default => '',
 );
 
+has 'flat_dav' => (
+    is => 'ro',
+    isa => 'Flag',
+    default => 0,
+);
+
 has 'front_proxy' => (
     is => 'ro',
     isa => 'ArrayRef[Str]',

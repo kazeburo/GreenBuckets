@@ -20,7 +20,7 @@ subtype 'Replica'
 
 subtype 'Flag'
     => as 'Int'
-    => where { $_ == 0 || $_ == 1 };
+    => where { $_ <= 1 };
 
 no Mouse::Util::TypeConstraints;
 

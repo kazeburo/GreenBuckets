@@ -65,32 +65,32 @@ is_deeply $nodes2, [
 ];
 
 
-my @nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 3 );
+my @nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 3, flat => 0 );
 is( scalar @nodes, 3);
 is( $nodes[0]->{object_id}, 3);
 is( $nodes[0]->{gid}, 2);
 ok( $nodes[0]->{uri} );
 
-@nodes = $schema->retrieve_object_nodes( bucket_id => 2, filename => 5 );
+@nodes = $schema->retrieve_object_nodes( bucket_id => 2, filename => 5, flat => 0 );
 is( scalar @nodes, 3);
 is( $nodes[0]->{object_id}, 5);
 is( $nodes[0]->{gid}, 3);
 ok( $nodes[0]->{uri} );
 
 
-@nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 9 );
+@nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 9, flat => 0 );
 is( scalar @nodes, 3);
 is( $nodes[0]->{object_id}, 9);
 is( $nodes[0]->{gid}, 2);
 ok( $nodes[0]->{uri} );
 
-@nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 1 );
+@nodes = $schema->retrieve_object_nodes( bucket_id => 1, filename => 1, flat => 0 );
 is( scalar @nodes, 3);
 is( $nodes[0]->{id}, 1);
 is( $nodes[1]->{id}, 3);
 is( $nodes[2]->{id}, 2);
 
-my $nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 1, filename => [1,9,100] );
+my $nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 1, filename => [1,9,100], flat => 0 );
 ok( $nodes_multi->{1} );
 ok( $nodes_multi->{9} );
 ok( !$nodes_multi->{100} );
@@ -106,7 +106,7 @@ is( $nodes_multi->{9}->[0]->{gid}, 2 );
 ok( $nodes_multi->{9}->[0]->{uri} );
 
 
-my @f_nodes = $schema->retrieve_fresh_nodes( replica => 3, bucket_id => 1, filename => 3 );
+my @f_nodes = $schema->retrieve_fresh_nodes( replica => 3, bucket_id => 1, filename => 3, flat => 0 );
 is( scalar @f_nodes, 3 );
 ok( $f_nodes[0]->{gid});
 ok( $f_nodes[0]->{rid});
@@ -170,9 +170,9 @@ eval {
 };
 ok($@);
 
-ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 1 );
-ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 2 );
-ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 3 );
+ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 1, flat => 1 );
+ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 2, flat => 1 );
+ok scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 3, flat => 1 );
 
 ok $schema->enable_bucket( bucket_id => 4 );
 is_deeply $schema->select_bucket( name => 'test'), { id => 4, name => 'test', enabled => 0, deleted => 0 }; 
@@ -208,15 +208,15 @@ eval {
 ok $@;
 $schema->delete_bucket( bucket_id => 4, deleted => 0 );
 
-@nodes = $schema->retrieve_object_nodes( bucket_id => 4, filename => 2 );
+@nodes = $schema->retrieve_object_nodes( bucket_id => 4, filename => 2, flat => 1 );
 ok $schema->delete_object( object_id => $nodes[0]->{object_id} );
-ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 2 );
+ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 2, flat => 1 );
 
-$nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 4, filename => [1,3] );
+$nodes_multi = $schema->retrieve_object_nodes_multi( bucket_id => 4, filename => [1,3], flat => 1 );
 
 ok $schema->delete_object_multi( object_id => [ map { $_->[0]->{object_id} } values %$nodes_multi] );
-ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 1 );
-ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 3 );
+ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 1, flat => 1 );
+ok ! scalar $schema->retrieve_object_nodes( bucket_id => 4, filename => 3, flat => 1 );
 
 subtest 'queue' => sub {
     ok ! $schema->retrieve_queue;
