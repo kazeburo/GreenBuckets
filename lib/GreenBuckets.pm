@@ -123,6 +123,15 @@ return +{
     # numbe of JobQueue worker
     jobqueue_max_worker => 5,
     recovery_max_worker => 2,
+
+    # timeout seconds request to storage node
+    timeout_for_get => 10,
+    timeout_for_put => 30,
+
+    # don't use directory on dav storage
+    # eg: flat_dav=0  http://storage/[00-99]/[00-99]/\w{56}
+    #     flat_dav=1  http://storage/\w{56}
+    flat_dav => 0,
 };
 
 
