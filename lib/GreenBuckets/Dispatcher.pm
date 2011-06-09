@@ -220,7 +220,7 @@ sub run {
         'Starlet',
         port => $self->config->dispatcher_port,
         host => 0,
-        max_workers => $self->config->dispatcher_max_worker,
+        workers => $self->config->dispatcher_max_worker,
     );
 
     $loader->run($app);

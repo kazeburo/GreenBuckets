@@ -70,8 +70,8 @@ sub get {
             headers => $headers,
             write_code => sub { $buf->print($_[3]) },
         );
-        infof("failed get: %s / %s", $url, $res->status_line) if ! $res->is_success;
-        last if $res->is_success; 
+        infof("failed get: %s / %s", $url, $res->status_line) if !$res->is_success && $res->code != 304;
+        last if $res->is_success || $res->code == 304;
     }
     return ($res,$buf->rewind);
 }

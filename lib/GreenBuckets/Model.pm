@@ -6,7 +6,9 @@ use utf8;
 use Carp qw/croak/;
 use Scope::Container;
 use Scope::Container::DBI;
+use DBIx::Sunny;
 use GreenBuckets::Schema;
+use GreenBuckets::Agent;
 use Plack::MIME;
 use GreenBuckets::Dispatcher::Response;
 use GreenBuckets::Exception;
@@ -121,12 +123,10 @@ sub get_object {
 
     my ($res,$fh) = $self->agent->get(\@r_uri, \@proxy_headers);
     http_croak(500, "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line)
-        if !$res->is_success; 
+        if !$res->is_success && $res->code != 304;; 
 
     my $r_res = GreenBuckets::Dispatcher::Response->new($res->code);
-    $res->scan(sub{
-        $r_res->push_header(@_);
-    });
+    $r_res->header($res->headers->flatten);
     $r_res->content_type( Plack::MIME->mime_type($filename) || 'text/plain' );
     $r_res->body($fh);
     $r_res;
