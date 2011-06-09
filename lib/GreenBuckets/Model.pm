@@ -15,6 +15,7 @@ use List::Util qw/shuffle/;
 use Try::Tiny;
 use Log::Minimal;
 use JSON;
+use URI::Escape;
 use Mouse;
 
 our $MAX_RETRY_JOB = 3600;
@@ -66,9 +67,15 @@ sub res_ok {
     $res->body("OK");
 }
 
+# hop-by-hop headers (see also RFC2616)
+my @hop_by_hop = qw(
+    Connection Keep-Alive Proxy-Authenticate Proxy-Authorization
+    TE Trailer Transfer-Encoding Upgrade
+);
+
 sub get_object {
     my $self = shift;
-    my ($bucket_name, $filename, $query_string) = @_;
+    my ($bucket_name, $filename, $req) = @_;
 
     my $slave = $self->slave;
     my $bucket = $slave->select_bucket(
@@ -90,14 +97,36 @@ sub get_object {
     my @r_uri = map { $_->{uri} } grep { $_->{online} && !$_->{remote} } @uri;
     http_croak(500, "all storages are %s", \@uri) if ! @r_uri;
 
-    my ($res,$fh) = $self->agent->get(\@r_uri, $bucket_name, $filename, $query_string);
+    my $query_string = $req->env->{QUERY_STRING};
+    @r_uri = map { $_ . '?'. $query_string } @r_uri if defined $query_string;
+
+    my $headers = $req->headers->clone;
+
+    # Save from known hop-by-hop deletion.
+    my @connection_tokens = $headers->header('Connection');
+
+    # Remove hop-by-hop headers.
+    $headers->remove_header( $_ ) for @hop_by_hop;
+
+    # Connection header's tokens are also hop-by-hop.
+    for my $token ( @connection_tokens ){
+        $headers->remove_header( $_ ) for split /\s*,\s*/, $token;
+    }
+
+    my @proxy_headers;
+    $headers->scan(sub{
+        push @proxy_headers, @_;
+    });
+    push @proxy_headers, 'X-GreenBuckets-Original-Path', uri_escape_utf8($bucket_name . '/' . $filename);
+
+    my ($res,$fh) = $self->agent->get(\@r_uri, \@proxy_headers);
     http_croak(500, "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line)
         if !$res->is_success; 
 
-    my $r_res = GreenBuckets::Dispatcher::Response->new(200);
-    for my $header ( qw/server last-modified expires cache-control/ ) {
-        $r_res->header($header, $res->header($header));
-    }
+    my $r_res = GreenBuckets::Dispatcher::Response->new($res->code);
+    $res->scan(sub{
+        $r_res->push_header(@_);
+    });
     $r_res->content_type( Plack::MIME->mime_type($filename) || 'text/plain' );
     $r_res->body($fh);
     $r_res;

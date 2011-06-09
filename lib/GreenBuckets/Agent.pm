@@ -7,7 +7,6 @@ use Furl;
 use Net::DNS::Lite qw//;
 use Log::Minimal;
 use MIME::Base64;
-use URI::Escape;
 use Plack::TempBuffer;
 use Class::Accessor::Lite (
     new => 1,
@@ -57,25 +56,18 @@ sub furl {
 sub get {
     my $self = shift;
     my $urls = shift;
-    my ($bucket_name, $filename, $query_string)  = @_;
+    my $headers = shift;
     my @urls = ref $urls ? @$urls : ($urls);
-    
-    my $original_path;
-    if ( $bucket_name && $filename ) {
-        $original_path = uri_escape_utf8($bucket_name . '/' . $filename);
-    }
+    $headers ||= [];
 
     my $res;
     my $buf;
     for my $url ( @urls ) {
-        $url .= '?' . $query_string if $query_string;
-        my @headers;
-        push @headers, 'X-GreenBuckets-Original-Path', $original_path if $original_path;
         $buf = Plack::TempBuffer->new;
         $res = $self->furl_for_get->request(
             method => 'GET',
             url => $url,
-            headers => \@headers,
+            headers => $headers,
             write_code => sub { $buf->print($_[3]) },
         );
         infof("failed get: %s / %s", $url, $res->status_line) if ! $res->is_success;
