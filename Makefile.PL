@@ -26,7 +26,7 @@ requires 'Pod::Usage';
 requires 'Router::Simple';
 requires 'File::Temp';
 requires 'Term::ANSIColor';
-requires 'Class::load';
+requires 'Class::Load';
 requires 'Data::MessagePack';
 requires 'Parallel::Prefork';
 requires 'Parallel::Scoreboard';
