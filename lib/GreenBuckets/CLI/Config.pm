@@ -23,7 +23,7 @@ __END__
 
 =head1 NAME
 
-GreenBuckets::CLI::Schema - output GreenBuckets sample configuration
+GreenBuckets::CLI::Config - output GreenBuckets sample configuration
 
 =head1 SYNOPSIS
 

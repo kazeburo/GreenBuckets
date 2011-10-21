@@ -33,11 +33,11 @@ __END__
 
 =head1 NAME
 
-GreenBuckets::CLI::Dispatcher - run dispatcher httpd server
+GreenBuckets::CLI::Jobqueue - run jobqueue daemon
 
 =head1 SYNOPSIS
 
-  $ greenbuckets dispatcher -c config.pl
+  $ greenbuckets jobqueue -c config.pl
 
 =cut
 
