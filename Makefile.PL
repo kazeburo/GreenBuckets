@@ -44,6 +44,7 @@ test_requires 'Test::More';
 test_requires 'Test::TCP';
 test_requires 'Test::mysqld' if $Module::Install::AUTHOR;
 test_requires 'Perlbal' if $Module::Install::AUTHOR;
+install_script 'bin/greenbuckets';
 
 auto_set_repository;
 #auto_include;
