@@ -59,7 +59,7 @@ __PACKAGE__->query(
 __PACKAGE__->query(
     'delete_bucket_all',
     'bucket_id'  => 'Natural',
-    "DELETE FROM buckets WHERE id = ?"
+    q{DELETE FROM buckets WHERE id = ?}
 );
 
 __PACKAGE__->query(
