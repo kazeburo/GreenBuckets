@@ -2,7 +2,6 @@ package t::TestConfig;
 
 use strict;
 use warnings;
-use t::TestMysql;
 use GreenBuckets::Config;
 use Test::TCP;
 
@@ -12,6 +11,7 @@ sub setup {
         jobqueue_worker_port => empty_port(),
     };
     if ( $ENV{TEST_MYSQLD} ) {
+        require t::TestMysql;
         my $mysqld = t::TestMysql->setup;
         my @dsn = $mysqld->dsn( dbname => 'test' );
         $config->{master} = \@dsn;
