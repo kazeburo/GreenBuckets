@@ -1,7 +1,6 @@
 use strict;
 use warnings;
 use Test::More;
-use t::TestMysql;
 use DBIx::Sunny;
 use GreenBuckets::Schema;
 use GreenBuckets::Util qw/filename_id/;
@@ -10,6 +9,7 @@ if ( !$ENV{TEST_MYSQLD} ) {
     plan skip_all => 'TEST_MYSQLD is false';
 }
 
+require t::TestMysql;
 my $mysqld = t::TestMysql->setup or plan skip_all => $t::TestMysql::errstr; 
 
 my $dbh = DBIx::Sunny->connect($mysqld->dsn( dbname => "test" ));
