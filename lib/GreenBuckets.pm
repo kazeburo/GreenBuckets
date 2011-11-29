@@ -24,7 +24,7 @@ subtype 'Flag'
 
 no Mouse::Util::TypeConstraints;
 
-our $VERSION = 0.06;
+our $VERSION = 0.07;
 our @TABLES = qw/nodes buckets objects jobqueue recovery putlock/;
 
 __PACKAGE__->meta->make_immutable();
@@ -44,7 +44,7 @@ CREATE TABLE nodes (
 @@ buckets
 CREATE TABLE buckets (
     id INT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
-    name VARCHAR(32) UNIQUE,
+    name VARCHAR(128) UNIQUE,
     enabled TINYINT UNSIGNED DEFAULT 1,
     deleted TINYINT UNSIGNED DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8
