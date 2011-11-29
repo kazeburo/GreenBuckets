@@ -47,7 +47,7 @@ sub furl {
     $self->{furl_for_put} ||= Furl->new(
         inet_aton => \&Net::DNS::Lite::inet_aton,
         timeout   => $self->timeout_for_put,
-        agent => 'GreenBucketAgent/$GreenBucket::VERSION',
+        agent => "GreenBucketAgent/$GreenBuckets::VERSION",
         headers => \@headers,
     );
 }
