@@ -27,7 +27,7 @@ sub furl_for_get {
     $self->{furl_for_get} ||= Furl->new(
         inet_aton => \&Net::DNS::Lite::inet_aton,
         timeout   => $self->timeout_for_get,
-        agent => "GreenBucketAgent/$GreenBucket::VERSION",
+        agent => "GreenBucketAgent/$GreenBuckets::VERSION",
         headers => \@headers,
     );
 }
