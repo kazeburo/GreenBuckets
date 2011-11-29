@@ -24,7 +24,7 @@ subtype 'Flag'
 
 no Mouse::Util::TypeConstraints;
 
-our $VERSION = 0.05;
+our $VERSION = 0.06;
 our @TABLES = qw/nodes buckets objects jobqueue recovery putlock/;
 
 __PACKAGE__->meta->make_immutable();
@@ -132,6 +132,10 @@ return +{
     # eg: flat_dav=0  http://storage/[00-99]/[00-99]/\w{56}
     #     flat_dav=1  http://storage/\w{56}
     flat_dav => 0,
+
+    # treat PATH_INFO as unescape uri, default 0
+    # if 0, PATH_INFO will unescape and encode to utf8
+    escaped_uri => 0,
 };
 
 

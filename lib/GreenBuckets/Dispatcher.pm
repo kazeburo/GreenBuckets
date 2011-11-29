@@ -151,7 +151,15 @@ sub build_app {
         });
 
         my $p = try {
-            local $env->{PATH_INFO} = Encode::decode_utf8( $env->{PATH_INFO}, 1 );
+            my $path;
+            if ( $self->config->escaped_uri ) {
+                my ($rpath, $rquery) = ( $env->{REQUEST_URI} =~ /^([^?#]*)(?:\?([^#]*))?/s );
+                $path = $rpath; #for unescaped PATH_INFO
+            }
+            else {
+                $path =  $env->{PATH_INFO}, 
+            }
+            local $env->{PATH_INFO} = Encode::decode_utf8($path, Encode::FB_CROAK | Encode::LEAVE_SRC );
             $router->match($env)
         }
         catch {

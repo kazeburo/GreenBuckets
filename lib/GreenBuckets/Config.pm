@@ -121,6 +121,13 @@ has 'timeout_for_put' => (
     default => 30,
 );
 
+has 'escaped_uri' => (
+    is => 'ro',
+    isa => 'Flag',
+    default => 0,
+);
+
+
 __PACKAGE__->meta->make_immutable();
 1;
 
