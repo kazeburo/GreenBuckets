@@ -655,6 +655,7 @@ sub dequeue {
     my $func = $queue->{func};
     my $try = $queue->{try};
     $try++;
+    my $has_next = $queue->{has_next};
 
     my $job;
 
@@ -688,7 +689,7 @@ sub dequeue {
         }
     };
 
-    1;
+    $has_next;
 }
 
 
@@ -700,6 +701,7 @@ sub dequeue_recovery {
     my $args = decode_json($queue->{args});;
     my $try = $queue->{try};
     $try++;
+    my $has_next = $queue->{has_next};
 
     my $job;
     try {
@@ -721,7 +723,7 @@ sub dequeue_recovery {
         }
     };
 
-    1;
+    $has_next;
 }
 
 

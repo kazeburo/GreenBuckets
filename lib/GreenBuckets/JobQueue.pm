@@ -17,7 +17,6 @@ use Time::HiRes qw//;
 use Mouse;
 
 our $MAX_JOB = 5;
-our $SLEEP = 0.5;
 
 has 'config' => (
     is => 'ro',
@@ -125,9 +124,10 @@ sub run {
                     ? $self->model->dequeue 
                     : $self->model->dequeue_recovery;
                 $scoreboard->update('.');
-                $i++ if $result;
+                $i++ if defined $result;
                 last if $i > $MAX_JOB;
-                Time::HiRes::sleep $SLEEP unless $ENV{JOBQ_STOP};
+                my $sleep = ($result == 0) ? 0.8+rand(0.2) : rand(0.05)+0.05;
+                Time::HiRes::sleep($sleep) if !$ENV{JOBQ_STOP};
             }
         
             debugf "process finished";

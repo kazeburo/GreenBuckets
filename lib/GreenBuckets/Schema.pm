@@ -359,13 +359,17 @@ sub retrieve_queue {
     return unless @$queues;
     
     my $queue;
+    my $num = scalar @$queues;
     for my $r_queue ( @$queues ) {
         my $result = $self->delete_queue( id => $r_queue->{id} );
+        $num = $num - 1;
         if ( $result == 1 ) {
             $queue = $r_queue;
             last;
         }
     }
+    return unless $queue;
+    $queue->{has_next} = $num;
     $queue;
 }
 
@@ -380,13 +384,17 @@ sub retrieve_recovery_queue {
     return unless @$queues;
     
     my $queue;
+    my $num = scalar @$queues;
     for my $r_queue ( @$queues ) {
         my $result = $self->delete_recovery_queue( id => $r_queue->{id} );
+        $num = $num - 1;
         if ( $result == 1 ) {
             $queue = $r_queue;
             last;
         }
     }
+    return unless $queue;
+    $queue->{has_next} = $num;
     $queue;
 }
 
