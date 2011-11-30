@@ -24,7 +24,7 @@ subtype 'Flag'
 
 no Mouse::Util::TypeConstraints;
 
-our $VERSION = 0.08;
+our $VERSION = 0.09;
 our @TABLES = qw/nodes buckets objects jobqueue recovery putlock/;
 
 __PACKAGE__->meta->make_immutable();
