@@ -91,10 +91,10 @@ sub run {
     local $Log::Minimal::PRINT = $self->build_logger();
 
     my $scoreboard = $self->scoreboard;
-    my $status_server_pid = $self->status_server;
-    
+
     my $pm = Parallel::Prefork->new({
-        max_workers  => $self->config->jobqueue_max_worker + $self->config->recovery_max_worker,
+        max_workers  => $self->config->jobqueue_max_worker + $self->config->recovery_max_worker + 1,
+        spawn_interval  => 1,
         trap_signals => {
             'TERM' => 'TERM',
             'HUP'  => 'TERM',
@@ -103,41 +103,62 @@ sub run {
         },
     });
 
-
     while ( $pm->signal_received !~ m!^(?:TERM|INT)$! ) {
         $pm->start(sub{
             srand();
-            
-            debugf "jobqueue process start";
-            $0 = "$0 (jobqueue worker)";
-            $scoreboard->update('.');
 
             local $ENV{JOBQ_STOP};
-            my $i = 0;
             local $SIG{TERM} = sub { $ENV{JOBQ_STOP} = 1 };
             local $SIG{INT} = sub { $ENV{JOBQ_STOP} = 1 };
 
-            while ( !$ENV{JOBQ_STOP} ) {
-                $scoreboard->update('A');
-                my $result = int(rand($self->config->jobqueue_max_worker + $self->config->recovery_max_worker)) 
-                      > $self->config->recovery_max_worker
-                    ? $self->model->dequeue 
-                    : $self->model->dequeue_recovery;
-                $scoreboard->update('.');
-                $i++ if defined $result;
-                last if $i > $MAX_JOB;
-                my $sleep = ($result == 0) ? 0.8+rand(0.2) : rand(0.05)+0.05;
-                Time::HiRes::sleep($sleep) if !$ENV{JOBQ_STOP};
+            my $stats = $scoreboard->read_all;
+            my %running;
+            for my $pid ( keys %{$stats} ) {
+                my $val = $stats->{$pid};
+                chomp($val);
+                my @val = split /\s/, $val; 
+                $running{$val[1]}++;
             }
-        
+
+            if ( !$running{status} ) {
+                $scoreboard->update('A status');
+                $self->status_server();
+            }
+            elsif ( !$running{worker} || $running{worker} < $self->config->jobqueue_max_worker ) {
+                debugf "start jobqueue worker";
+                $0 = "$0 (jobqueue worker)";
+                $scoreboard->update('. worker');
+                my $i = 0;
+                while ( !$ENV{JOBQ_STOP} ) {
+                    $scoreboard->update('A worker');
+                    my $result = $self->model->dequeue;
+                    $scoreboard->update('. worker');
+                    $i++ if defined $result;
+                    last if $i > $MAX_JOB;
+                    my $sleep = (!defined($result) || $result == 0) ? 0.8+rand(0.2) : rand(0.05)+0.05;
+                    Time::HiRes::sleep($sleep) if !$ENV{JOBQ_STOP};
+                }
+            }
+            elsif ( !$running{recovery} || $running{recovery} < $self->config->recovery_max_worker ) {
+                debugf "start recovery worker";
+                $0 = "$0 (recovery jobqueue worker)";
+                $scoreboard->update('. recovery');
+                my $i = 0;
+                while ( !$ENV{JOBQ_STOP} ) {
+                    $scoreboard->update('A recovery');
+                    my $result = $self->model->dequeue_recovery;
+                    $scoreboard->update('. recovery');
+                    $i++ if defined $result;
+                    last if $i > $MAX_JOB;
+                    my $sleep = (!defined($result) || $result == 0) ? 0.8+rand(0.2) : rand(0.05)+0.05;
+                    Time::HiRes::sleep($sleep) if !$ENV{JOBQ_STOP};
+                }
+            }
             debugf "process finished";
+            exit(0);
         });
     }
     $pm->wait_all_children;
-
-    debugf "kill status_server pid:%s", $status_server_pid;
-    kill 'TERM', $status_server_pid;
-    waitpid( $status_server_pid, 0 );
     debugf "all finished";
 }
 
@@ -155,15 +176,10 @@ sub status_server {
     );
     die $! unless $sock;
 
-    my $pid = fork;
-    die "fork failed: $!" unless defined $pid;
-
-    return $pid if $pid;
-
     debugf "start status_server port:%s", $self->config->jobqueue_worker_port;
     # status worker
     $0 = "$0 (jobqueue status worker)";
-    $SIG{TERM} = sub { exit(0) };
+    local $SIG{TERM} = sub { exit(0) };
     while ( 1 ) {
         my $client = $sock->accept();
 
