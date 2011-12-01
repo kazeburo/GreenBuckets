@@ -103,35 +103,35 @@ sub build_app {
 
     # get
     $router->connect(
-        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-\.]+}/*',
+        '/{bucket:[a-zA-Z0-9_][a-zA-Z0-9_\-\.]+}/*',
         { action => 'get_object' },
         { method => ['GET','HEAD'] }
     );
 
     # get dir
     $router->connect(
-        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-\.]+}/',
+        '/{bucket:[a-zA-Z0-9_][a-zA-Z0-9_\-\.]+}/',
         { action => 'get_bucket' },
         { method => ['GET','HEAD'] }
     );
 
     # put
     $router->connect(
-        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-\.]+}/*',
+        '/{bucket:[a-zA-Z0-9_][a-zA-Z0-9_\-\.]+}/*',
         { action => 'put_object' },
         { method => ['POST','PUT'] }
     );
 
     # delete
     $router->connect(
-        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-\.]+}/*',
+        '/{bucket:[a-zA-Z0-9_][a-zA-Z0-9_\-\.]+}/*',
         { action => 'delete_object' },
         { method => ['DELETE'] }
     );
 
     # post manip
     $router->connect(
-        '/{bucket:[a-zA-Z0-9][a-zA-Z0-9_\-\.]+}/',
+        '/{bucket:[a-zA-Z0-9_][a-zA-Z0-9_\-\.]+}/',
         { action => 'manip_bucket' },
         { method => ['POST'] }
     );
