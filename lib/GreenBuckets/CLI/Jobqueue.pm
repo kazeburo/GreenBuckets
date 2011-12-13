@@ -7,9 +7,11 @@ use GreenBuckets;
 use GreenBuckets::Config;
 use GreenBuckets::JobQueue;
 use Pod::Usage;
+use File::Temp qw//;
 
 use constant options => (
     'config|c=s' => 'config',
+    'scoreboard|s=s' => 'scoreboard',
 );
 
 sub run {
@@ -20,9 +22,16 @@ sub run {
         exit;
     }
 
+    my @dir_opt = (CLEANUP => 1);
+    if ( $self->{scoreboard} ) {
+        push @dir_opt, 'DIR' => $self->{scoreboard};
+    }
+    my $scoreboard_dir = File::Temp::tempdir(@dir_opt)
+
     my $config = GreenBuckets::Config->load( $self->{config} );
     GreenBuckets::JobQueue->new(
         config => $config,
+        scoreboard_dir => $scoreboard_dir,
     )->run;
 }
 
@@ -37,7 +46,7 @@ GreenBuckets::CLI::Jobqueue - run jobqueue daemon
 
 =head1 SYNOPSIS
 
-  $ greenbuckets jobqueue -c config.pl
+  $ greenbuckets jobqueue -c config.pl -s /var/run/greenbuckets
 
 =cut
 

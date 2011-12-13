@@ -24,6 +24,12 @@ has 'config' => (
     required => 1,
 );
 
+has 'scoreboard_dir' => (
+    is => 'ro',
+    isa => 'Str',
+    required => 1,
+);
+
 has 'model' => (
     is => 'ro',
     isa => 'GreenBuckets::Model',
@@ -44,7 +50,7 @@ sub _build_model {
 sub _build_scoreboard {
     my $self = shift;
     Parallel::Scoreboard->new(
-        base_dir => File::Temp::tempdir(CLEANUP => 1)
+        base_dir => $self->scoreboard_dir
     );
 }
 
@@ -120,11 +126,7 @@ sub run {
                 $running{$val[1]}++;
             }
 
-            if ( !$running{status} ) {
-                $scoreboard->update('A status');
-                $self->status_server();
-            }
-            elsif ( !$running{worker} || $running{worker} < $self->config->jobqueue_max_worker ) {
+            if ( !$running{worker} || $running{worker} < $self->config->jobqueue_max_worker ) {
                 debugf "start jobqueue worker";
                 $0 = "$0 (jobqueue worker)";
                 $scoreboard->update('. worker');
@@ -154,6 +156,10 @@ sub run {
                     Time::HiRes::sleep($sleep) if !$ENV{JOBQ_STOP};
                 }
             }
+            elsif ( !$running{status} ) {
+                $scoreboard->update('A status');
+                $self->status_server();
+            }
             debugf "process finished";
             exit(0);
         });
@@ -174,7 +180,10 @@ sub status_server {
         Proto  => 'tcp',
         Reuse  => 1,
     );
-    die $! unless $sock;
+    if ( !$sock ) {
+        sleep 3;
+        die $!;
+    }
 
     debugf "start status_server port:%s", $self->config->jobqueue_worker_port;
     # status worker
