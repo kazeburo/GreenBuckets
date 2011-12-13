@@ -26,7 +26,7 @@ sub run {
     if ( $self->{scoreboard} ) {
         push @dir_opt, 'DIR' => $self->{scoreboard};
     }
-    my $scoreboard_dir = File::Temp::tempdir(@dir_opt)
+    my $scoreboard_dir = File::Temp::tempdir(@dir_opt);
 
     my $config = GreenBuckets::Config->load( $self->{config} );
     GreenBuckets::JobQueue->new(
