@@ -136,6 +136,12 @@ return +{
     # treat PATH_INFO as unescape uri, default 0
     # if 0, PATH_INFO will unescape and encode to utf8
     escaped_uri => 0,
+
+    # additonal mimetypes
+    # hashref '.suffix' => 'type'
+    add_mime_type => {
+        '.epub' => 'application/epub+zip',
+    },
 };
 
 

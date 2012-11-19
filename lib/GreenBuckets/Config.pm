@@ -127,6 +127,14 @@ has 'escaped_uri' => (
     default => 0,
 );
 
+has 'add_mime_type' => (
+    is => 'ro',
+    isa => 'HashRef[Str]',
+    default => sub {+{
+        '.epub' => 'application/epub+zip'
+    }},
+);
+
 
 __PACKAGE__->meta->make_immutable();
 1;

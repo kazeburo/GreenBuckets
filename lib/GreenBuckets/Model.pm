@@ -125,8 +125,13 @@ sub get_object {
     http_croak(500, "all storage cannot get %s, last status_line: %s", \@uri, $res->status_line)
         if !$res->is_success && $res->code != 304;; 
 
+    foreach my $suffix ( %{ $self->config->add_mime_type } ) {
+        Plack::MIME->add_type($suffix, $self->config->add_mime_type->{$suffix});
+    }
+
     my $r_res = GreenBuckets::Dispatcher::Response->new($res->code);
     $r_res->header($res->headers->flatten);
+    $r_res->header('X-Content-Type-Options', 'nosniff');
     $r_res->content_type( Plack::MIME->mime_type($filename) || 'text/plain' );
     $r_res->body($fh);
     $r_res;
