@@ -34,6 +34,7 @@ requires 'Try::Tiny', 0.09;
 requires 'Starlet';
 requires 'Plack::Middleware::Log::Minimal', 0.03;
 requires 'Plack::Middleware::ServerStatus::Lite';
+requires 'Plack::Middleware::ReverseProxy';
 requires 'Plack::Builder::Conditionals';
 requires 'JSON';
 requires 'JSON::XS';
