@@ -4,13 +4,13 @@ all_from 'lib/GreenBuckets.pm';
 
 requires 'Data::Section::Simple';
 requires 'Plack';
-requires 'DBIx::Sunny', 0.07;
+requires 'DBIx::Sunny', '0.07';
 requires 'DBD::mysql';
 requires 'Furl';
 requires 'Net::DNS::Lite';
-requires 'Log::Minimal', 0.06;
+requires 'Log::Minimal', '0.06';
 requires 'MIME::Base64';
-requires 'Class::Accessor::Lite', 0.05;
+requires 'Class::Accessor::Lite', '0.05';
 requires 'Scope::Container';
 requires 'Scope::Container::DBI';
 requires 'List::Util';
@@ -30,15 +30,15 @@ requires 'Class::Load';
 requires 'Data::MessagePack';
 requires 'Parallel::Prefork';
 requires 'Parallel::Scoreboard';
-requires 'Try::Tiny', 0.09;
+requires 'Try::Tiny', '0.09';
 requires 'Starlet';
-requires 'Plack::Middleware::Log::Minimal', 0.03;
+requires 'Plack::Middleware::Log::Minimal', '0.03';
 requires 'Plack::Middleware::ServerStatus::Lite';
 requires 'Plack::Middleware::ReverseProxy';
 requires 'Plack::Builder::Conditionals';
 requires 'JSON';
 requires 'JSON::XS';
-
+requires 'DBIx::DSN::Resolver::Cached', '0.04';
 tests 't/*.t t/*/*.t';
 author_tests 'xt';
 

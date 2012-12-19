@@ -79,6 +79,12 @@ has 'slave' => (
     required => 1,
 );
 
+has 'dsn_resolver_cache_ttl' => (
+    is => 'ro',
+    isa => 'Int',
+    default => 0,
+);
+
 has 'replica' => (
     is => 'ro',
     isa => 'Replica',

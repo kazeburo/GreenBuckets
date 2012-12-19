@@ -19,6 +19,7 @@ use Log::Minimal;
 use JSON;
 use URI::Escape;
 use Mouse;
+use DBIx::DSN::Resolver::Cached;
 
 our $MAX_RETRY_JOB = 3600;
 
@@ -30,17 +31,47 @@ has 'config' => (
 
 __PACKAGE__->meta->make_immutable();
 
+my $resolver;
 sub slave {
     my $self = shift;
     local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
-    my $dbh = Scope::Container::DBI->connect(@{$self->config->slave});
+
+    my @slave;
+    if ( $self->config->dsn_resolver_cache_ttl ) {
+
+        $resolver ||= DBIx::DSN::Resolver::Cached->new(
+            ttl => $self->config->dsn_resolver_cache_ttl,
+        );
+        
+        if ( ref($self->config->slave->[0]) ) {
+            for my $slave ( @{$self->config->slave} ) {
+                my ($dsn, $user, $passwd) = @$slave;
+                push @slave, [$resolver->resolv($dsn), $user, $passwd];
+            }
+        }
+        else {
+            my ($dsn, $user, $passwd) = @{$self->config->slave};
+            push @slave, [$resolver->resolv($dsn), $user, $passwd];
+        }
+    }
+    else {
+        @slave = @{$self->config->slave};
+    }
+    my $dbh = Scope::Container::DBI->connect(@slave);
     GreenBuckets::Schema->new(dbh=>$dbh, readonly=>1);
 }
 
 sub master {
     my $self = shift;
     local $Scope::Container::DBI::DBI_CLASS = 'DBIx::Sunny';
-    my $dbh = Scope::Container::DBI->connect(@{$self->config->master});
+    my ($dsn, $user, $passwd) = @{$self->config->master};
+    if ( $self->config->dsn_resolver_cache_ttl ) {
+        $resolver ||= DBIx::DSN::Resolver::Cached->new(
+            ttl => $self->config->dsn_resolver_cache_ttl,
+        );
+        $dsn = $resolver->resolv($dsn);
+    }
+    my $dbh = Scope::Container::DBI->connect($dsn, $user, $passwd);
     GreenBuckets::Schema->new(dbh=>$dbh);
 }
 

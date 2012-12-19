@@ -108,12 +108,15 @@ return +{
     # dispatcher's status page acl
     dispatcher_status_access => [qw!192.168.0.0/16 10.0.0.0/8 127.0.0.1!],
 
-    # master/slave dbn
+    # master/slave dsn
     master => ['dbi:mysql:greenbuckets;host=127.0.0.1','user','passwd'],
     slave => [
         ['dbi:mysql:greenbuckets;host=127.0.0.1','user','passwd'],
         ['dbi:mysql:greenbuckets;host=127.0.0.1','user','passwd']
     ],
+
+    #ttl of dsn hostname resolver
+    dsn_resolver_cache_ttl => 5,
 
     # replica number
     replica => 3,
