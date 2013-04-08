@@ -647,7 +647,7 @@ sub delete_bucket {
         deleted => 1
     );
 
-    $self->enqueue('delete_bucket', $bucket->{id});
+    $self->enqueue('delete_bucket', { bucket_id => $bucket->{id} });
 
     return $self->res_ok;
 }
@@ -655,7 +655,7 @@ sub delete_bucket {
 sub jobq_delete_bucket {
     my $self = shift;
     my $job = shift;
-    my $bucket_id = $job->args;
+    my $bucket_id = $job->args->{bucket_id};
     my $master = $self->master;
     while ( 1 ) {
         my $rows = $master->select_bucket_objects( bucket_id => $bucket_id );
