@@ -84,6 +84,9 @@ sub manip_bucket {
         }
         return $self->model->delete_object_multi($bucket_name, \@path);
     }
+    elsif ( $args->{method} eq 'rename' ) {
+        return $self->model->rename_bucket($bucket_name, $args->{rename_to});
+    }
     elsif ( $args->{method} eq 'enable' ) {
         return $self->model->enable_bucket($bucket_name, 1);
     }

@@ -57,6 +57,13 @@ __PACKAGE__->query(
 );
 
 __PACKAGE__->query(
+    'rename_bucket',
+    'rename_to' => 'Str',
+    'bucket_id'  => 'Natural',
+    q{UPDATE buckets SET name = ? WHERE id = ?},
+);
+
+__PACKAGE__->query(
     'delete_bucket_all',
     'bucket_id'  => 'Natural',
     q{DELETE FROM buckets WHERE id = ?}
@@ -82,6 +89,7 @@ __PACKAGE__->query(
     'object_id' => 'ArrayRef[Natural]',
     q{DELETE FROM objects WHERE id IN (?)}
 );
+
 
 __PACKAGE__->select_all(
     'select_queue',

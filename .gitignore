@@ -10,3 +10,6 @@ nytprof.out
 MANIFEST.bak
 *.sw[po]
 *~
+GreenBuckets-*
+MYMETA.*
+etc/config_dev.pl

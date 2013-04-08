@@ -50,7 +50,7 @@ sub setup {
 
     $dbh->query(q{INSERT INTO buckets SET name = ?}, 'foo');
     $dbh->query(q{INSERT INTO buckets SET name = ?}, 'bar');
-    $dbh->query(q{INSERT INTO buckets SET name = ?}, 'baz');
+    $dbh->query(q{INSERT INTO buckets SET name = ?}, 'baz2');
 
     $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=250 ,gid=1, filename=?},filename_id(1), 1);
     $dbh->query(q{INSERT INTO objects SET bucket_id=1, fid=?, rid=251 ,gid=1, filename=?},filename_id(2), 2);

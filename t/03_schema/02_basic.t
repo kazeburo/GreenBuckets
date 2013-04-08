@@ -18,6 +18,12 @@ ok( $schema );
 
 is_deeply $schema->select_bucket( name => 'foo'), { id => 1, name => 'foo', enabled => 1, deleted => 0 }; 
 
+is_deeply $schema->select_bucket( name => 'baz2'), { id => 3, name => 'baz2', enabled => 1, deleted => 0 }; 
+
+$schema->rename_bucket( rename_to => 'baz', bucket_id => 3);
+
+is_deeply $schema->select_bucket( name => 'baz'), { id => 3, name => 'baz', enabled => 1, deleted => 0 }; 
+
 my $nodes = $schema->select_object_nodes(
     fid => filename_id(1),
     bucket_id => 1

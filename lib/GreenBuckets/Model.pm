@@ -177,7 +177,7 @@ sub get_bucket {
     );
     http_croak(404) unless $bucket; # 404
     http_croak(403) if ! $bucket->{enabled}; # 403
-    http_croak(503) if $bucket->{deleted}; # 404;
+    http_croak(503) if $bucket->{deleted}; # 503;
 
     return $self->res_ok;
 }
@@ -190,7 +190,7 @@ sub enable_bucket {
         name => $bucket_name
     );
     http_croak(404) unless $bucket; # 404
-    http_croak(503) if $bucket->{deleted}; # 404;
+    http_croak(503) if $bucket->{deleted}; # 503;
 
     $master->enable_bucket(
         bucket_id => $bucket->{id},
@@ -200,6 +200,42 @@ sub enable_bucket {
     return $self->res_ok;
 }
 
+sub rename_bucket {
+    my $self = shift;
+    my ($bucket_name, $rename_to) = @_;
+    my $master = $self->master;
+    my $bucket = $master->select_bucket(
+        name => $bucket_name
+    );
+    http_croak(404) unless $bucket; # 404
+    http_croak(503) if $bucket->{deleted}; # 503;
+
+    my $lock = try {
+        $master->putlock(
+            bucket_id => $bucket->{id},
+            filename => '__rename__'
+        );
+    };
+    http_croak(423) if ! $lock;
+
+    my $locked = GreenBuckets::Model::PutLock->new(
+        model => $self,
+        lock => $lock
+    );
+    
+    my $rename_to_bucket = $master->select_bucket(
+        name => $rename_to
+    );
+
+    http_croak(409, "already exists bucket: %s", $rename_to)
+        if $rename_to_bucket;
+
+    $master->rename_bucket(
+        bucket_id => $bucket->{id},
+        rename_to => $rename_to
+    );
+    return  $self->res_ok;
+}
 
 sub put_object {
     my $self = shift;
